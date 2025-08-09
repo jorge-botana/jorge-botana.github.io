@@ -1,2 +1,18 @@
-test
-a ver
+<!DOCTYPE html>
+    <head>
+        <title>Private Web Viewer</title>
+    </head>
+
+    <body>
+        <h1>Loading...</h1>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+        <script src="script.js"></script>
+    </body>
+
+    <script>
+        const decrypted = 'master';
+        const passphrase = '1234';
+        const encrypted = CryptoJS.AES.encrypt(decrypted, passphrase).toString();
+        console.log('Payload:', encrypted);
+    </script>
+</html>

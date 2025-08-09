@@ -1,0 +1,13 @@
+{
+    "editor.detectIndentation": false,
+    "editor.renderWhitespace": "all",
+    "editor.rulers": [
+        80
+    ],
+
+    "files.associations": {
+        "*.json": "jsonc"
+    },
+    "files.trimFinalNewlines": true,
+    "files.trimTrailingWhitespace": true
+}
