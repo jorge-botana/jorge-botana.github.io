@@ -80,6 +80,7 @@ async function loadSite() {
     let mainHtml = fileContents['index.html'];
     mainHtml = rewritePaths(mainHtml, blobUrls);
 
+
     // 7. Render the page
  //   document.open();
  //   document.write(mainHtml);
