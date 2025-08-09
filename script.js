@@ -1,16 +1,24 @@
-async function loadSite() {
-  const params = new URLSearchParams(window.location.search);
-  const passphrase = params.get('pass');
+function loadSite() {
+    const params = new URLSearchParams(window.location.search);
+    const passphrase = params.get('pass');
 
-  if (!passphrase) {
-    document.body.innerHTML = '<p>Error: No passphrase provided in URL (use ?pass=1234)</p>';
-    return;
-  }
+    if (!passphrase) {
+        document.body.innerHTML =
+                '<p>Error: No passphrase provided in URL (use ?pass=1234)</p>';
+        return;
+    }
 
-  try {
     // 1. Load and decrypt token
-    const targetRes = await fetch('target.json');
-    const targetJson = await targetRes.json();
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', 'target.json', false); // synchronous request
+    xhr.send();
+
+    if (xhr.status !== 200) {
+        document.body.innerHTML = '<p>Error loading target.json</p>';
+        return;
+    }
+
+    var targetJson = JSON.parse(xhr.responseText);
 
     const encUsername = targetJson.username;
     const encRepository = targetJson.repository;
@@ -33,87 +41,86 @@ async function loadSite() {
     const token = decToken.toString(CryptoJS.enc.Utf8);
     console.log('Token:', token);
 
+    const apiBase =
+            `https://api.github.com/repos/${username}/${repository}/contents`;
 
-  //  if (!token || !/^gh[p|_]/.test(token)) {
-  //    throw new Error('Decryption failed or invalid token');
-  //  }
+    function fetchFileSync(path) {
+        var url = `${apiBase}/${path}?ref=${branch}`;
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, false);
+        xhr.setRequestHeader('Authorization', 'token ' + token);
+        xhr.setRequestHeader('Accept', 'application/vnd.github.v3.raw');
+        xhr.send(null);
 
-    // 2. Configure repo info
- //   const username = '';          // ✅ CHANGE THIS
- //   const repo = '';          // ✅ CHANGE THIS
- //   const branch = '';
-    const apiBase = `https://api.github.com/repos/${username}/${repository}/contents`;
-
-    // Helper: Fetch and decode file as raw text
-    async function fetchFile(path) {
-      const url = `${apiBase}/${path}?ref=${branch}`;
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `token ${token}`,
-          Accept: 'application/vnd.github.v3.raw'
+        if (xhr.status !== 200) {
+            throw new Error("Failed to fetch " + path + ": " + xhr.status);
         }
-      });
 
-      if (!res.ok) throw new Error(`Failed to fetch ${path}: ${res.status}`);
-      return await res.text();
+        return xhr.responseText;
     }
 
-    // 3. Load manifest (site.json)
-    const manifestText = await fetchFile('site.json');
-    const fileList = JSON.parse(manifestText);
+  try {
+    // 2. Load manifest
+    var manifestText = fetchFileSync('site.json');
+    var fileList = JSON.parse(manifestText);
 
-    // 4. Fetch all files into memory
-    const fileContents = {};
-    for (const path of fileList) {
-      fileContents[path] = await fetchFile(path);
+    // 3. Fetch all files
+    var fileContents = {};
+    for (var i = 0; i < fileList.length; i++) {
+        var path = fileList[i];
+        fileContents[path] = fetchFileSync(path);
     }
 
-    // 5. Create blob URLs for each file
-    const blobUrls = {};
-    for (const [path, content] of Object.entries(fileContents)) {
-      const mime = detectMimeType(path);
-      const blob = new Blob([content], { type: mime });
-      blobUrls[path] = URL.createObjectURL(blob);
+    // 4. Create blob URLs
+    var blobUrls = {};
+    for (var path in fileContents) {
+        var mime = detectMimeType(path);
+        var blob = new Blob([fileContents[path]], { type: mime });
+        blobUrls[path] = URL.createObjectURL(blob);
     }
 
-    // 6. Rewrite HTML paths to blob URLs
-    let mainHtml = fileContents['index.html'];
+    // 5. Rewrite index.html
+    var mainHtml = fileContents['index.html'];
     mainHtml = rewritePaths(mainHtml, blobUrls);
 
-
-    // 7. Render the page
- //   document.open();
- //   document.write(mainHtml);
- //   document.close();
-
-const originalTitle = document.title;
-document.documentElement.innerHTML = mainHtml;
-document.title = originalTitle;
-
+    // 6. Render the page
+    var originalTitle = document.title;
+    document.documentElement.innerHTML = mainHtml;
+    document.title = originalTitle;
   } catch (err) {
-    document.body.innerHTML = `<p>Error loading site: ${err.message}</p>`;
+    document.body.innerHTML = '<p>Error loading site: ' + err.message + '</p>';
   }
 }
 
-// Utility: basic MIME type guessing
+// Utility to guess MIME type
 function detectMimeType(path) {
-  if (path.endsWith('.css')) return 'text/css';
-  if (path.endsWith('.js')) return 'application/javascript';
-  if (path.endsWith('.html')) return 'text/html';
-  if (path.endsWith('.png')) return 'image/png';
-  if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg';
-  if (path.endsWith('.svg')) return 'image/svg+xml';
-  return 'text/plain';
+    if (path.endsWith('.css')) return 'text/css';
+    if (path.endsWith('.js')) return 'application/javascript';
+    if (path.endsWith('.html')) return 'text/html';
+    if (path.endsWith('.png')) return 'image/png';
+    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg';
+    if (path.endsWith('.svg')) return 'image/svg+xml';
+    return 'text/plain';
 }
 
-// Utility: replace relative paths in HTML with blob URLs
+// Replace relative file paths in HTML with blob URLs
 function rewritePaths(html, blobUrls) {
-  for (const [path, blobUrl] of Object.entries(blobUrls)) {
-    const safePath = path.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-    const regex = new RegExp(`(["'])${safePath}\\1`, 'g');
-    html = html.replace(regex, `"${blobUrl}"`);
-  }
-  return html;
+    for (var path in blobUrls) {
+        var safePath = path.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+        var regex = new RegExp('([\'"])' + safePath + '\\1', 'g');
+        html = html.replace(regex, '"' + blobUrls[path] + '"');
+    }
+    return html;
 }
 
-loadSite();
+// Run it after page load
+
+const cdnBase = "https://cdnjs.cloudflare.com/ajax/libs/";
+const libPath = "crypto-js/4.2.0/crypto-js.min.js";
+const fullSrc = cdnBase + libPath;
+
+const script = document.createElement('script');
+script.src = fullSrc;
+document.head.appendChild(script);
+
+window.onload = loadSite;
