@@ -33,29 +33,28 @@ async function loadSite() {
     const token = decToken.toString(CryptoJS.enc.Utf8);
     console.log('Token:', token);
 
-
-  //  if (!token || !/^gh[p|_]/.test(token)) {
-  //    throw new Error('Decryption failed or invalid token');
-  //  }
-
-    // 2. Configure repo info
- //   const username = '';          // ✅ CHANGE THIS
- //   const repo = '';          // ✅ CHANGE THIS
- //   const branch = '';
     const apiBase = `https://api.github.com/repos/${username}/${repository}/contents`;
 
     // Helper: Fetch and decode file as raw text
     async function fetchFile(path) {
-      const url = `${apiBase}/${path}?ref=${branch}`;
-      const res = await fetch(url, {
-        headers: {
-          Authorization: `token ${token}`,
-          Accept: 'application/vnd.github.v3.raw'
-        }
-      });
+        const url = `${apiBase}/${path}?ref=${branch}`;
+        const res = await fetch(url, {
+            headers: {
+            Authorization: `token ${token}`,
+            Accept: 'application/vnd.github.v3.raw'
+            }
+        });
 
-      if (!res.ok) throw new Error(`Failed to fetch ${path}: ${res.status}`);
-      return await res.text();
+        if (!res.ok) throw new Error(`Failed to fetch ${path}: ${res.status}`);
+
+        const mime = detectMimeType(path);
+        if (mime == 'image/png') {
+            // For images and JS files, get as Blob
+            return await res.blob();
+        } else {
+            // For text files (HTML, CSS, JSON, etc.)
+            return await res.text();
+        }
     }
 
     // 3. Load manifest (site.json)
@@ -71,9 +70,18 @@ async function loadSite() {
     // 5. Create blob URLs for each file
     const blobUrls = {};
     for (const [path, content] of Object.entries(fileContents)) {
-      const mime = detectMimeType(path);
-      const blob = new Blob([content], { type: mime });
-      blobUrls[path] = URL.createObjectURL(blob);
+        const mime = detectMimeType(path);
+
+        let blob;
+        if (content instanceof Blob) {
+            // Already a blob, just reuse
+            blob = content;
+        } else {
+            // Content is string, make blob
+            blob = new Blob([content], { type: mime });
+        }
+
+        blobUrls[path] = URL.createObjectURL(blob);
     }
 
     // 6. Rewrite HTML paths to blob URLs
