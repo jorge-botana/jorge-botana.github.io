@@ -34,93 +34,79 @@ async function loadSite() {
         const token = decToken.toString(CryptoJS.enc.Utf8);
         console.log('Token:', token);
 
+        // GitHub API base URL for accessing private repository contents
         const apiBase =
                 `https://api.github.com/repos/${username}/${repository}/contents`;
 
-        // Helper: Fetch and decode file as raw text
-        async function fetchFile(path) {
+        // Helper: Fetch file metadata from GitHub API
+        async function fetchFileMetadata(path) {
             const url = `${apiBase}/${path}?ref=${branch}`;
             const res = await fetch(url, {
                 headers: {
-                Authorization: `token ${token}`,
-                Accept: 'application/vnd.github.v3.raw'
+                    Authorization: `token ${token}`,
+                    Accept: 'application/vnd.github.v3+json'
                 }
             });
 
-            if (!res.ok) throw new Error(`Failed to fetch ${path}: ${res.status}`);
-
-            const mime = detectMimeType(path);
-            if (mime == 'image/png') {
-                // For images and JS files, get as Blob
-                return await res.blob();
-            } else {
-                // For text files (HTML, CSS, JSON, etc.)
-                return await res.text();
+            if (!res.ok) {
+                throw new Error(`Failed to fetch file metadata for ${path}: ${res.status}`);
             }
+
+            return res.json(); // Return the metadata of the file
         }
 
-    // 3. Load manifest (site.json)
-    const manifestText = await fetchFile('site.json');
-    const fileList = JSON.parse(manifestText);
+        // Helper: Fetch raw content from GitHub API
+        async function fetchFile(path) {
+            const metadata = await fetchFileMetadata(path);
 
-    // 4. Fetch all files into memory
-    const fileContents = {};
-    for (const path of fileList) {
-        fileContents[path] = await fetchFile(path);
-    }
+            // If it's a file (not a directory), get the raw URL
+            if (metadata.type === 'file') {
+                return metadata.download_url;
+            }
 
-    // 5. Create blob URLs for each file
-    const blobUrls = {};
-    for (const [path, content] of Object.entries(fileContents)) {
-        const mime = detectMimeType(path);
-
-        let blob;
-        if (content instanceof Blob) {
-            // Already a blob, just reuse
-            blob = content;
-        } else {
-            // Content is string, make blob
-            blob = new Blob([content], { type: mime });
+            throw new Error(`Expected file, but got a directory: ${path}`);
         }
 
-        blobUrls[path] = URL.createObjectURL(blob);
-    }
+        // 3. Load manifest (site.json)
+        const manifestUrl = await fetchFile('site.json');
+        const manifestRes = await fetch(manifestUrl);
+        if (!manifestRes.ok) {
+            console.error('Error fetching site.json:', manifestRes.status, manifestRes.statusText);
+            throw new Error('Failed to fetch site.json');
+        }
+        const manifestText = await manifestRes.text();
+        console.log('site.json content:', manifestText);
 
-    // 6. Rewrite HTML paths to blob URLs
-    let mainHtml = fileContents['index.html'];
-    mainHtml = rewritePaths(mainHtml, blobUrls);
+        const fileList = JSON.parse(manifestText); // This will now throw an error if the content is invalid JSON
 
-    // 7. Render the page
- //   document.open();
- //   document.write(mainHtml);
- //   document.close();
+        // 4. Fetch all file URLs into memory
+        const fileUrls = {};
+        for (const path of fileList) {
+            const url = await fetchFile(path);
+            fileUrls[path] = url;
+        }
 
-    const originalTitle = document.title;
-    document.documentElement.innerHTML = mainHtml;
-    document.title = originalTitle;
+        // 5. Rewrite HTML paths to real GitHub URLs
+        let mainHtml = await fetchFile('index.html');
+        mainHtml = await fetch(mainHtml).then(res => res.text());
+        mainHtml = rewritePaths(mainHtml, fileUrls);
+
+        // 6. Render the page
+        const originalTitle = document.title;
+        document.documentElement.innerHTML = mainHtml;
+        document.title = originalTitle;
 
     } catch (err) {
         document.body.innerHTML = `<p>Error loading site: ${err.message}</p>`;
     }
 }
 
-// Utility: basic MIME type guessing
-function detectMimeType(path) {
-    if (path.endsWith('.css')) return 'text/css';
-    if (path.endsWith('.js')) return 'application/javascript';
-    if (path.endsWith('.html')) return 'text/html';
-    if (path.endsWith('.png')) return 'image/png';
-    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg';
-    if (path.endsWith('.svg')) return 'image/svg+xml';
-    return 'text/plain';
-}
-
-// Utility: replace relative paths in HTML with blob URLs
-function rewritePaths(html, blobUrls) {
-    for (const [path, blobUrl] of Object.entries(blobUrls)) {
+// Utility: replace relative paths in HTML with GitHub raw URLs
+function rewritePaths(html, rawUrls) {
+    for (const [path, rawUrl] of Object.entries(rawUrls)) {
         const safePath = path.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
         const regex = new RegExp(`(["'])${safePath}\\1`, 'g');
-        html = html.replace(regex, `"${blobUrl}"`);
+        html = html.replace(regex, `"${rawUrl}"`);
     }
     return html;
 }
