@@ -91,10 +91,13 @@ async function loadSite() {
         mainHtml = await fetch(mainHtml).then(res => res.text());
         mainHtml = rewritePaths(mainHtml, fileUrls);
 
-        // 6. Render the page
+        // 6. Render the page (inject HTML and execute scripts)
         const originalTitle = document.title;
         document.documentElement.innerHTML = mainHtml;
         document.title = originalTitle;
+
+        // 7. Execute scripts in the page
+        executeScripts(mainHtml);
 
     } catch (err) {
         document.body.innerHTML = `<p>Error loading site: ${err.message}</p>`;
@@ -109,6 +112,20 @@ function rewritePaths(html, rawUrls) {
         html = html.replace(regex, `"${rawUrl}"`);
     }
     return html;
+}
+
+// Function to execute <script> tags in HTML after the page is loaded
+function executeScripts(html) {
+    const scriptTags = html.match(/<script[^>]*>([\s\S]*?)<\/script>/g);
+
+    if (scriptTags) {
+        scriptTags.forEach(tag => {
+            const scriptContent = tag.replace(/<script[^>]*>|<\/script>/g, '').trim();
+            const scriptElement = document.createElement('script');
+            scriptElement.textContent = scriptContent;
+            document.body.appendChild(scriptElement);
+        });
+    }
 }
 
 const cdnBase = "https://cdnjs.cloudflare.com/ajax/libs/";
