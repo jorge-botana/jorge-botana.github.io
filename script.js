@@ -35,8 +35,7 @@ async function loadSite() {
         console.log('Token:', token);
 
         // GitHub API base URL for accessing private repository contents
-        const apiBase =
-                `https://api.github.com/repos/${username}/${repository}/contents`;
+        const apiBase = `https://api.github.com/repos/${username}/${repository}/contents`;
 
         // Helper: Fetch file metadata from GitHub API
         async function fetchFileMetadata(path) {
@@ -67,7 +66,7 @@ async function loadSite() {
             throw new Error(`Expected file, but got a directory: ${path}`);
         }
 
-        // 3. Load manifest (site.json)
+        // 3. Load manifest (site.json) to get the list of assets like images
         const manifestUrl = await fetchFile('site.json');
         const manifestRes = await fetch(manifestUrl);
         if (!manifestRes.ok) {
@@ -79,14 +78,14 @@ async function loadSite() {
 
         const fileList = JSON.parse(manifestText); // This will now throw an error if the content is invalid JSON
 
-        // 4. Fetch all file URLs into memory
+        // 4. Fetch all image URLs (or other assets) into memory
         const fileUrls = {};
         for (const path of fileList) {
             const url = await fetchFile(path);
             fileUrls[path] = url;
         }
 
-        // 5. Rewrite HTML paths to real GitHub URLs
+        // 5. Rewrite HTML paths to real GitHub URLs (for images, CSS, JS, etc.)
         let mainHtml = await fetchFile('index.html');
         mainHtml = await fetch(mainHtml).then(res => res.text());
         mainHtml = rewritePaths(mainHtml, fileUrls);
@@ -101,8 +100,26 @@ async function loadSite() {
 
         const myButton = document.getElementById('downloadBtn');
         if (myButton) {
-            myButton.addEventListener('click', function() {
-                console.log('Download button was fired!');
+            myButton.addEventListener('click', async function() {
+                console.log('Download button pressed!');
+
+                try {
+                    // Fetch the metadata for the download.zip file from GitHub
+                    const metadata = await fetchFileMetadata('download.zip');
+
+                    if (metadata.type === 'file') {
+                        // Get the raw URL for the download.zip file
+                        const zipFileUrl = metadata.download_url;
+
+                        // Initiate the download by setting location.href
+                        window.location.href = zipFileUrl;
+                        console.log('Downloading:', zipFileUrl);
+                    } else {
+                        console.error('download.zip is not a file or does not exist.');
+                    }
+                } catch (error) {
+                    console.error('Error fetching download.zip:', error);
+                }
             });
         }
     } catch (err) {
