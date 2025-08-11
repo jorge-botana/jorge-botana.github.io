@@ -99,6 +99,12 @@ async function loadSite() {
         // 7. Execute scripts in the page
         executeScripts(mainHtml);
 
+        const myButton = document.getElementById('downloadBtn');
+        if (myButton) {
+            myButton.addEventListener('click', function() {
+                console.log('Download button was fired!');
+            });
+        }
     } catch (err) {
         document.body.innerHTML = `<p>Error loading site: ${err.message}</p>`;
     }
