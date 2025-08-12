@@ -1,95 +1,107 @@
-const token = [
-  'github_', // part 1
-  'pat_',    // part 2
-  '11AXOD6MY0089TelU37c7N_', // part 3
-  'U6EA7j8UxniGxUsL5ljY74Rl37r8kZyxAWCMxzynFnaLH4YXO3KKXBZyHhN' // part 4
-].join('');
-
-
-// === CONFIGURATION ===
-const username = 'jorge-botana';
-const repo = 'test';
-const branch = 'master';
+// loader.js
 
 async function loadRemoteSite() {
-  try {
-    // Step 1: Fetch and parse index.html
-    const indexHtml = await fetchFromGitHub('index.html');
-    const { html, externalScripts } = processHtml(indexHtml);
+    const params = new URLSearchParams(window.location.search);
+    const passphrase = params.get('pass');
 
-    // Step 2: Inject HTML content into the page
-    document.body.innerHTML = html;
-
-    // Step 3: Load and execute external scripts
-    for (const path of externalScripts) {
-      const code = await fetchFromGitHub(path);
-      injectScript(code);
+    if (!passphrase) {
+        document.body.innerHTML =
+            '<p>Error: No passphrase provided in URL (use ?pass=1234)</p>';
+        return;
     }
 
-  } catch (err) {
-    document.body.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
-    console.error('Load error:', err);
-  }
-}
+    try {
+        // Load and decrypt token
+        const targetRes = await fetch('target.json');
+        const targetJson = await targetRes.json();
 
-// === Fetch file via GitHub API ===
-async function fetchFromGitHub(filePath) {
-  const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${filePath}?ref=${branch}`;
-  const res = await fetch(apiUrl, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github.v3.raw',
+        const username = decrypt(targetJson.username, passphrase);
+        const repository = decrypt(targetJson.repository, passphrase);
+        const branch = decrypt(targetJson.branch, passphrase);
+        const token = decrypt(targetJson.token, passphrase);
+
+        if (!username || !repository || !branch || !token) {
+            throw new Error('Decryption failed. Check your passphrase.');
+        }
+
+        const context = { username, repository, branch, token };
+
+        // Step 1: Fetch and parse index.html
+        const indexHtml = await fetchFromGitHub('index.html', context);
+        const { html, externalScripts } = processHtml(indexHtml, context);
+
+        // Step 2: Inject HTML content into the page
+        document.body.innerHTML = html;
+
+        // Step 3: Load and execute external scripts
+        for (const path of externalScripts) {
+            const code = await fetchFromGitHub(path, context);
+            injectScript(code);
+        }
+
+    } catch (err) {
+        document.body.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+        console.error('Load error:', err);
     }
-  });
-
-  if (!res.ok) {
-    throw new Error(`Failed to fetch ${filePath}: ${res.status}`);
-  }
-
-  return res.text();  // Already decoded
 }
 
-// === Rewrite paths in HTML (excluding <script>) ===
-function processHtml(htmlText) {
-  const container = document.createElement('div');
-  container.innerHTML = htmlText;
+function decrypt(encrypted, passphrase) {
+    const bytes = CryptoJS.AES.decrypt(encrypted, passphrase);
+    return bytes.toString(CryptoJS.enc.Utf8);
+}
 
-  const scriptPaths = [];
+async function fetchFromGitHub(filePath, { username, repository, branch, token }) {
+    const apiUrl = `https://api.github.com/repos/${username}/${repository}/contents/${filePath}?ref=${branch}`;
+    const res = await fetch(apiUrl, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3.raw',
+        }
+    });
 
-  // Extract and remove <script src="..."> tags to fetch manually
-  const scripts = container.querySelectorAll('script');
-  scripts.forEach(script => {
-    if (script.src) {
-      scriptPaths.push(script.getAttribute('src'));
-    } else {
-      injectScript(script.textContent); // Inline script
+    if (!res.ok) {
+        throw new Error(`Failed to fetch ${filePath}: ${res.status}`);
     }
-    script.remove();
-  });
 
-  // Rewrite other asset URLs (images, CSS)
-  container.querySelectorAll('[src], [href]').forEach(el => {
-    const attr = el.hasAttribute('src') ? 'src' : 'href';
-    const val = el.getAttribute(attr);
-    if (!val.startsWith('http') && !val.startsWith('data:')) {
-      el.setAttribute(attr, githubRawUrl(val));
-    }
-  });
-
-  return { html: container.innerHTML, externalScripts: scriptPaths };
+    return res.text();
 }
 
-// === Convert relative paths to GitHub API URLs for assets (images, CSS) ===
-function githubRawUrl(path) {
-  return `https://api.github.com/repos/${username}/${repo}/contents/${path}?ref=${branch}`;
+function processHtml(htmlText, { username, repository, branch }) {
+    const container = document.createElement('div');
+    container.innerHTML = htmlText;
+
+    const scriptPaths = [];
+
+    const scripts = container.querySelectorAll('script');
+    scripts.forEach(script => {
+        if (script.src) {
+            scriptPaths.push(script.getAttribute('src'));
+        } else {
+            injectScript(script.textContent);
+        }
+        script.remove();
+    });
+
+    container.querySelectorAll('[src], [href]').forEach(el => {
+        const attr = el.hasAttribute('src') ? 'src' : 'href';
+        const val = el.getAttribute(attr);
+        if (!val.startsWith('http') && !val.startsWith('data:')) {
+            el.setAttribute(attr, githubRawAssetUrl(val, { username, repository, branch }));
+        }
+    });
+
+    return { html: container.innerHTML, externalScripts: scriptPaths };
 }
 
-// === Inject script into DOM ===
+function githubRawAssetUrl(path, { username, repository, branch }) {
+    return `https://raw.githubusercontent.com/${username}/${repository}/${branch}/${path}`;
+}
+
 function injectScript(code) {
-  const script = document.createElement('script');
-  script.textContent = code;
-  document.body.appendChild(script);
+    const script = document.createElement('script');
+    script.textContent = code;
+    document.body.appendChild(script);
 }
 
-// === Start loading on page load ===
+// Run on page load
 loadRemoteSite();
