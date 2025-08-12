@@ -84,44 +84,52 @@ async function fetchImageDownloadUrl(path, { username, repository, branch, token
 }
 
 async function processHtml(htmlText, context) {
-    const container = document.createElement('div');
-    container.innerHTML = htmlText;
+    // Use DOMParser instead of innerHTML to prevent auto-loading resources
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, 'text/html');
 
     const scriptPaths = [];
 
-    const scripts = container.querySelectorAll('script');
+    // Process and remove all <script> tags
+    const scripts = doc.querySelectorAll('script');
     scripts.forEach(script => {
         if (script.src) {
             scriptPaths.push(script.getAttribute('src'));
         } else {
             injectScript(script.textContent);
         }
-        script.remove();
+        script.remove(); // prevent execution until ready
     });
 
-    // For all elements with src or href
-    const elements = container.querySelectorAll('[src], [href]');
+    // Rewrite all src/href attributes that are not absolute URLs
+    const elements = doc.querySelectorAll('[src], [href]');
     await Promise.all(Array.from(elements).map(async (el) => {
         const attr = el.hasAttribute('src') ? 'src' : 'href';
         const val = el.getAttribute(attr);
-        if (!val.startsWith('http') && !val.startsWith('data:')) {
-            if (el.tagName.toLowerCase() === 'img') {
-                try {
-                    const tempUrl = await fetchImageDownloadUrl(val, context);
-                    el.setAttribute('src', tempUrl);
-                } catch (e) {
-                    console.warn(`Failed to load image ${val}: ${e.message}`);
-                    // fallback: use raw.githubusercontent url (may 404)
-                    el.setAttribute(attr, githubRawAssetUrl(val, context));
-                }
-            } else {
-                el.setAttribute(attr, githubRawAssetUrl(val, context));
+        if (!val || val.startsWith('http') || val.startsWith('data:')) return;
+
+        const normalizedPath = val.startsWith('/') ? val.slice(1) : val;
+
+        if (el.tagName.toLowerCase() === 'img') {
+            try {
+                const tempUrl = await fetchImageDownloadUrl(normalizedPath, context);
+                el.setAttribute('src', tempUrl);
+            } catch (e) {
+                console.warn(`Failed to load image ${normalizedPath}: ${e.message}`);
+                el.setAttribute(attr, githubRawAssetUrl(normalizedPath, context));
             }
+        } else {
+            el.setAttribute(attr, githubRawAssetUrl(normalizedPath, context));
         }
     }));
 
-    return { html: container.innerHTML, externalScripts: scriptPaths };
+    // Serialize updated HTML back to a string
+    return {
+        html: doc.body.innerHTML,
+        externalScripts: scriptPaths
+    };
 }
+
 
 function githubRawAssetUrl(path, { username, repository, branch }) {
     return `https://raw.githubusercontent.com/${username}/${repository}/${branch}/${path}`;
