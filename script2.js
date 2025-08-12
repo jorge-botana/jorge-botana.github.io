@@ -11,7 +11,6 @@ async function loadRemoteSite() {
     }
 
     try {
-        // Load and decrypt token
         const targetRes = await fetch('target.json');
         const targetJson = await targetRes.json();
 
@@ -26,14 +25,11 @@ async function loadRemoteSite() {
 
         const context = { username, repository, branch, token };
 
-        // Step 1: Fetch and parse index.html
         const indexHtml = await fetchFromGitHub('index.html', context);
-        const { html, externalScripts } = processHtml(indexHtml, context);
+        const { html, externalScripts } = await processHtml(indexHtml, context);
 
-        // Step 2: Inject HTML content into the page
         document.body.innerHTML = html;
 
-        // Step 3: Load and execute external scripts
         for (const path of externalScripts) {
             const code = await fetchFromGitHub(path, context);
             injectScript(code);
@@ -66,7 +62,28 @@ async function fetchFromGitHub(filePath, { username, repository, branch, token }
     return res.text();
 }
 
-function processHtml(htmlText, { username, repository, branch }) {
+// Fetch metadata JSON for image to get temporary download_url
+async function fetchImageDownloadUrl(path, { username, repository, branch, token }) {
+    const apiUrl = `https://api.github.com/repos/${username}/${repository}/contents/${path}?ref=${branch}`;
+    const res = await fetch(apiUrl, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3+json' // Request JSON metadata
+        }
+    });
+
+    if (!res.ok) {
+        throw new Error(`Failed to fetch image metadata ${path}: ${res.status}`);
+    }
+
+    const json = await res.json();
+    if (!json.download_url) {
+        throw new Error(`No download_url found for image ${path}`);
+    }
+    return json.download_url;
+}
+
+async function processHtml(htmlText, context) {
     const container = document.createElement('div');
     container.innerHTML = htmlText;
 
@@ -82,13 +99,26 @@ function processHtml(htmlText, { username, repository, branch }) {
         script.remove();
     });
 
-    container.querySelectorAll('[src], [href]').forEach(el => {
+    // For all elements with src or href
+    const elements = container.querySelectorAll('[src], [href]');
+    await Promise.all(Array.from(elements).map(async (el) => {
         const attr = el.hasAttribute('src') ? 'src' : 'href';
         const val = el.getAttribute(attr);
         if (!val.startsWith('http') && !val.startsWith('data:')) {
-            el.setAttribute(attr, githubRawAssetUrl(val, { username, repository, branch }));
+            if (el.tagName.toLowerCase() === 'img') {
+                try {
+                    const tempUrl = await fetchImageDownloadUrl(val, context);
+                    el.setAttribute('src', tempUrl);
+                } catch (e) {
+                    console.warn(`Failed to load image ${val}: ${e.message}`);
+                    // fallback: use raw.githubusercontent url (may 404)
+                    el.setAttribute(attr, githubRawAssetUrl(val, context));
+                }
+            } else {
+                el.setAttribute(attr, githubRawAssetUrl(val, context));
+            }
         }
-    });
+    }));
 
     return { html: container.innerHTML, externalScripts: scriptPaths };
 }
