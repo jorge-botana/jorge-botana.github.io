@@ -1,5 +1,3 @@
-// loader.js
-
 async function loadRemoteSite() {
     const params = new URLSearchParams(window.location.search);
     const passphrase = params.get('pass');
@@ -30,10 +28,22 @@ async function loadRemoteSite() {
 
         document.body.innerHTML = html;
 
-        for (const path of externalScripts) {
-            const code = await fetchFromGitHub(path, context);
-            injectScript(code);
+        // Re-inject external scripts at original positions
+        for (const { elementId, code } of externalScripts) {
+            const placeholder = document.getElementById(elementId);
+            if (placeholder) {
+                const script = document.createElement('script');
+                script.textContent = code;
+                placeholder.replaceWith(script);
+            }
         }
+
+        // Re-inject inline scripts
+        document.querySelectorAll('.delayed-inline-script').forEach(el => {
+            const script = document.createElement('script');
+            script.textContent = el.textContent;
+            el.replaceWith(script);
+        });
 
     } catch (err) {
         document.body.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
@@ -62,13 +72,12 @@ async function fetchFromGitHub(filePath, { username, repository, branch, token }
     return res.text();
 }
 
-// Fetch metadata JSON for image to get temporary download_url
 async function fetchImageDownloadUrl(path, { username, repository, branch, token }) {
     const apiUrl = `https://api.github.com/repos/${username}/${repository}/contents/${path}?ref=${branch}`;
     const res = await fetch(apiUrl, {
         headers: {
             Authorization: `Bearer ${token}`,
-            Accept: 'application/vnd.github.v3+json' // Request JSON metadata
+            Accept: 'application/vnd.github.v3+json'
         }
     });
 
@@ -84,24 +93,34 @@ async function fetchImageDownloadUrl(path, { username, repository, branch, token
 }
 
 async function processHtml(htmlText, context) {
-    // Use DOMParser instead of innerHTML to prevent auto-loading resources
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlText, 'text/html');
 
-    const scriptPaths = [];
+    const externalScripts = [];
+    let scriptCounter = 0;
 
-    // Process and remove all <script> tags
+    // Process <script> tags
     const scripts = doc.querySelectorAll('script');
-    scripts.forEach(script => {
-        if (script.src) {
-            scriptPaths.push(script.getAttribute('src'));
-        } else {
-            injectScript(script.textContent);
-        }
-        script.remove(); // prevent execution until ready
-    });
+    for (const script of scripts) {
+        const placeholderId = `script-placeholder-${++scriptCounter}`;
+        const placeholder = document.createElement('div');
+        placeholder.id = placeholderId;
 
-    // Rewrite all src/href attributes that are not absolute URLs
+        if (script.src) {
+            const originalSrc = script.getAttribute('src');
+            const normalizedPath = originalSrc.startsWith('/') ? originalSrc.slice(1) : originalSrc;
+            const code = await fetchFromGitHub(normalizedPath, context);
+
+            externalScripts.push({ elementId: placeholderId, code });
+            script.replaceWith(placeholder);
+        } else {
+            // Inline script
+            script.classList.add('delayed-inline-script');
+            script.type = 'text/plain'; // prevent auto-execution
+        }
+    }
+
+    // Rewrite all [src]/[href] to use GitHub assets
     const elements = doc.querySelectorAll('[src], [href]');
     await Promise.all(Array.from(elements).map(async (el) => {
         const attr = el.hasAttribute('src') ? 'src' : 'href';
@@ -123,23 +142,15 @@ async function processHtml(htmlText, context) {
         }
     }));
 
-    // Serialize updated HTML back to a string
     return {
         html: doc.body.innerHTML,
-        externalScripts: scriptPaths
+        externalScripts
     };
 }
-
 
 function githubRawAssetUrl(path, { username, repository, branch }) {
     return `https://raw.githubusercontent.com/${username}/${repository}/${branch}/${path}`;
 }
 
-function injectScript(code) {
-    const script = document.createElement('script');
-    script.textContent = code;
-    document.body.appendChild(script);
-}
-
-// Run on page load
+// Start the loader
 loadRemoteSite();
