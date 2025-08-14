@@ -146,33 +146,31 @@ async function processHtml(htmlText, context) {
     doc.querySelectorAll('.delayed-inline-script').forEach(script => {
         let scriptText = script.textContent;
 
-        if (/function\s+f\s*\(\s*buttonId\s*,\s*file\s*\)/.test(scriptText)) {
-            scriptText = `
-            async function f(buttonId, file) {
-                document.getElementById(buttonId).addEventListener("click", async () => {
-                    try {
-                        const apiUrl = \`https://api.github.com/repos/${context.username}/${context.repository}/contents/\${file}?ref=${context.branch}\`;
-                        const res = await fetch(apiUrl, {
-                            headers: {
-                                Authorization: \`Bearer ${context.token}\`,
-                                Accept: "application/vnd.github.v3+json"
-                            }
-                        });
-                        if (!res.ok) throw new Error(\`Failed to fetch file metadata: \${res.status}\`);
-                        const json = await res.json();
-                        if (!json.download_url) throw new Error('No download_url found for ' + file);
-                        const link = document.createElement('a');
-                        link.href = json.download_url;
-                        link.download = file.split('/').pop();
-                        document.body.appendChild(link);
-                        link.click();
-                        link.remove();
-                    } catch (err) {
-                        alert(err.message);
-                    }
-                });
-            }
-            `;
+        // Rewrite iframe src in download functions (e.g., downloadLocalFile)
+        if (/iframe\.src\s*=\s*['"`](.+?)['"`]/.test(scriptText)) {
+            scriptText = scriptText.replace(
+                /iframe\.src\s*=\s*['"`](.+?)['"`]/g,
+                (match, file) => {
+                    return `
+                    (async () => {
+                        try {
+                            const apiUrl = "https://api.github.com/repos/${context.username}/${context.repository}/contents/${file}?ref=${context.branch}";
+                            const res = await fetch(apiUrl, {
+                                headers: {
+                                    Authorization: "Bearer ${context.token}",
+                                    Accept: "application/vnd.github.v3+json"
+                                }
+                            });
+                            if (!res.ok) throw new Error("Failed to fetch file metadata: " + res.status);
+                            const json = await res.json();
+                            if (!json.download_url) throw new Error("No download_url found for ${file}");
+                            iframe.src = json.download_url;
+                        } catch (err) {
+                            alert("Download failed: " + err.message);
+                        }
+                    })();`;
+                }
+            );
         }
 
         script.textContent = scriptText;
