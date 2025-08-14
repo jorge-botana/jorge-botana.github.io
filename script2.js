@@ -99,7 +99,7 @@ async function processHtml(htmlText, context) {
     const externalScripts = [];
     let scriptCounter = 0;
 
-    // Process <script> tags
+    // Process <script> tags (external and inline)
     const scripts = doc.querySelectorAll('script');
     for (const script of scripts) {
         const placeholderId = `script-placeholder-${++scriptCounter}`;
@@ -114,13 +114,13 @@ async function processHtml(htmlText, context) {
             externalScripts.push({ elementId: placeholderId, code });
             script.replaceWith(placeholder);
         } else {
-            // Inline script
+            // Inline script - prevent immediate execution
             script.classList.add('delayed-inline-script');
-            script.type = 'text/plain'; // prevent auto-execution
+            script.type = 'text/plain';
         }
     }
 
-    // Rewrite all [src]/[href] to use GitHub assets
+    // Rewrite image src and other src/href attributes (except files downloaded by f())
     const elements = doc.querySelectorAll('[src], [href]');
     await Promise.all(Array.from(elements).map(async (el) => {
         const attr = el.hasAttribute('src') ? 'src' : 'href';
@@ -142,6 +142,42 @@ async function processHtml(htmlText, context) {
         }
     }));
 
+    // Inject custom function f to override the remote site's function f(buttonId, file)
+    doc.querySelectorAll('.delayed-inline-script').forEach(script => {
+        let scriptText = script.textContent;
+
+        if (/function\s+f\s*\(\s*buttonId\s*,\s*file\s*\)/.test(scriptText)) {
+            scriptText = `
+            async function f(buttonId, file) {
+                document.getElementById(buttonId).addEventListener("click", async () => {
+                    try {
+                        const apiUrl = \`https://api.github.com/repos/${context.username}/${context.repository}/contents/\${file}?ref=${context.branch}\`;
+                        const res = await fetch(apiUrl, {
+                            headers: {
+                                Authorization: \`Bearer ${context.token}\`,
+                                Accept: "application/vnd.github.v3+json"
+                            }
+                        });
+                        if (!res.ok) throw new Error(\`Failed to fetch file metadata: \${res.status}\`);
+                        const json = await res.json();
+                        if (!json.download_url) throw new Error('No download_url found for ' + file);
+                        const link = document.createElement('a');
+                        link.href = json.download_url;
+                        link.download = file.split('/').pop();
+                        document.body.appendChild(link);
+                        link.click();
+                        link.remove();
+                    } catch (err) {
+                        alert(err.message);
+                    }
+                });
+            }
+            `;
+        }
+
+        script.textContent = scriptText;
+    });
+
     return {
         html: doc.body.innerHTML,
         externalScripts
@@ -152,5 +188,5 @@ function githubRawAssetUrl(path, { username, repository, branch }) {
     return `https://raw.githubusercontent.com/${username}/${repository}/${branch}/${path}`;
 }
 
-// Start the loader
+// Start loading the remote site
 loadRemoteSite();
