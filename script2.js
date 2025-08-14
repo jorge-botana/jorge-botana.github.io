@@ -23,7 +23,7 @@ async function loadRemoteSite() {
 
         const context = { username, repository, branch, token };
 
-        const indexHtml = await fetchFromGitHub('index.html', context);
+        const indexHtml = await fetchGitHubFile('index.html', context);
         const { html, externalScripts } = await processHtml(indexHtml, context);
 
         document.body.innerHTML = html;
@@ -56,40 +56,38 @@ function decrypt(encrypted, passphrase) {
     return bytes.toString(CryptoJS.enc.Utf8);
 }
 
-async function fetchFromGitHub(filePath, { username, repository, branch, token }) {
+async function fetchGitHubFile(filePath, { username, repository, branch, token }, options = {}) {
+    const { returnDownloadUrl = false } = options;
+
     const apiUrl = `https://api.github.com/repos/${username}/${repository}/contents/${filePath}?ref=${branch}`;
-    const res = await fetch(apiUrl, {
-        headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: 'application/vnd.github.v3.raw',
-        }
-    });
 
-    if (!res.ok) {
-        throw new Error(`Failed to fetch ${filePath}: ${res.status}`);
-    }
-
-    return res.text();
-}
-
-async function fetchImageDownloadUrl(path, { username, repository, branch, token }) {
-    const apiUrl = `https://api.github.com/repos/${username}/${repository}/contents/${path}?ref=${branch}`;
-    const res = await fetch(apiUrl, {
+    const metadataRes = await fetch(apiUrl, {
         headers: {
             Authorization: `Bearer ${token}`,
             Accept: 'application/vnd.github.v3+json'
         }
     });
 
-    if (!res.ok) {
-        throw new Error(`Failed to fetch image metadata ${path}: ${res.status}`);
+    if (!metadataRes.ok) {
+        throw new Error(`Failed to fetch metadata for ${filePath}: ${metadataRes.status}`);
     }
 
-    const json = await res.json();
-    if (!json.download_url) {
-        throw new Error(`No download_url found for image ${path}`);
+    const metadata = await metadataRes.json();
+
+    if (!metadata.download_url) {
+        throw new Error(`No download_url found for ${filePath}`);
     }
-    return json.download_url;
+
+    if (returnDownloadUrl) {
+        return metadata.download_url;
+    }
+
+    const contentRes = await fetch(metadata.download_url);
+    if (!contentRes.ok) {
+        throw new Error(`Failed to fetch content of ${filePath}: ${contentRes.status}`);
+    }
+
+    return contentRes.text();
 }
 
 async function processHtml(htmlText, context) {
@@ -109,8 +107,7 @@ async function processHtml(htmlText, context) {
         if (script.src) {
             const originalSrc = script.getAttribute('src');
             const normalizedPath = originalSrc.startsWith('/') ? originalSrc.slice(1) : originalSrc;
-            const code = await fetchFromGitHub(normalizedPath, context);
-
+            const code = await fetchGitHubFile(normalizedPath, context);
             externalScripts.push({ elementId: placeholderId, code });
             script.replaceWith(placeholder);
         } else {
@@ -120,7 +117,7 @@ async function processHtml(htmlText, context) {
         }
     }
 
-    // Rewrite image src and other src/href attributes (except files downloaded by f())
+    // Rewrite image src and other src/href attributes
     const elements = doc.querySelectorAll('[src], [href]');
     await Promise.all(Array.from(elements).map(async (el) => {
         const attr = el.hasAttribute('src') ? 'src' : 'href';
@@ -131,7 +128,7 @@ async function processHtml(htmlText, context) {
 
         if (el.tagName.toLowerCase() === 'img') {
             try {
-                const tempUrl = await fetchImageDownloadUrl(normalizedPath, context);
+                const tempUrl = await fetchGitHubFile(normalizedPath, context, { returnDownloadUrl: true });
                 el.setAttribute('src', tempUrl);
             } catch (e) {
                 console.warn(`Failed to load image ${normalizedPath}: ${e.message}`);
@@ -142,11 +139,11 @@ async function processHtml(htmlText, context) {
         }
     }));
 
-    // Inject custom function f to override the remote site's function f(buttonId, file)
+    // Inject custom function f to override file downloads
     doc.querySelectorAll('.delayed-inline-script').forEach(script => {
         let scriptText = script.textContent;
 
-        // Rewrite iframe src in download functions (e.g., downloadLocalFile)
+        // Rewrite iframe.src = "file" with GitHub download link logic
         if (/iframe\.src\s*=\s*['"`](.+?)['"`]/.test(scriptText)) {
             scriptText = scriptText.replace(
                 /iframe\.src\s*=\s*['"`](.+?)['"`]/g,
@@ -186,5 +183,5 @@ function githubRawAssetUrl(path, { username, repository, branch }) {
     return `https://raw.githubusercontent.com/${username}/${repository}/${branch}/${path}`;
 }
 
-// Start loading the remote site
+// Start loading
 loadRemoteSite();
