@@ -141,26 +141,29 @@ async function processHtml(htmlText, context) {
         }
     }));
 
-    // Rewrite iframe.src inside inline scripts
-    doc.querySelectorAll('.delayed-inline-script').forEach(script => {
-        let scriptText = script.textContent;
+    // Patch inline onclick="downloadFile('filename')" to dynamic fetch + call
+    const onclickElements = doc.querySelectorAll('[onclick]');
+    onclickElements.forEach(el => {
+        const onclick = el.getAttribute('onclick');
+        if (!onclick) return;
 
-        scriptText = scriptText.replace(
-            /iframe\.src\s*=\s*['"`](.+?)['"`]/g,
-            (match, file) => {
-                return `
+        // Match downloadFile('somefile.ext') call, extract filename inside quotes
+        const match = onclick.match(/downloadFile\(['"](.+?)['"]\)/);
+        if (match) {
+            const filename = match[1];
+            // Replace onclick content with async IIFE to fetch dynamic URL
+            el.setAttribute('onclick', `
                 (async () => {
                     try {
-                        const downloadUrl = await fetchGitHubFile("${file}", ${JSON.stringify(context)});
-                        iframe.src = downloadUrl;
+                        const url = await fetchGitHubFile('${filename}', ${JSON.stringify(context)});
+                        downloadFile(url);
                     } catch (err) {
-                        alert("Download failed: " + err.message);
+                        alert('Download failed: ' + err.message);
                     }
-                })();`;
-            }
-        );
-
-        script.textContent = scriptText;
+                })();
+                return false;
+            `);
+        }
     });
 
     return {
