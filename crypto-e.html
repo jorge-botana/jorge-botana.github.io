@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AES-CBC Text Encryptor</title>
+</head>
+<body>
+  <h2>AES-CBC Encryptor</h2>
+
+  <label>Plaintext:</label><br/>
+  <textarea id="plaintext" rows="4" cols="50"></textarea><br/><br/>
+
+  <label>Password (used to derive key):</label><br/>
+  <input type="password" id="password" /><br/><br/>
+
+  <button onclick="encryptText()">Encrypt</button>
+
+  <h3>Encrypted Output (Base64)</h3>
+  <pre id="output"></pre>
+
+  <script>
+    async function encryptText() {
+      const text = document.getElementById('plaintext').value;
+      const password = document.getElementById('password').value;
+      const encoder = new TextEncoder();
+
+      // Generate a random IV
+      const iv = crypto.getRandomValues(new Uint8Array(16));
+
+      // Derive AES key from password using PBKDF2
+      const keyMaterial = await crypto.subtle.importKey(
+        "raw",
+        encoder.encode(password),
+        { name: "PBKDF2" },
+        false,
+        ["deriveKey"]
+      );
+
+      const key = await crypto.subtle.deriveKey(
+        {
+          name: "PBKDF2",
+          salt: iv, // use IV as salt
+          iterations: 100000,
+          hash: "SHA-256"
+        },
+        keyMaterial,
+        { name: "AES-CBC", length: 256 },
+        false,
+        ["encrypt"]
+      );
+
+      // Encrypt the plaintext
+      const ciphertext = await crypto.subtle.encrypt(
+        {
+          name: "AES-CBC",
+          iv: iv
+        },
+        key,
+        encoder.encode(text)
+      );
+
+      // Combine IV + ciphertext and encode in base64
+      const combined = new Uint8Array(iv.byteLength + ciphertext.byteLength);
+      combined.set(iv, 0);
+      combined.set(new Uint8Array(ciphertext), iv.byteLength);
+
+      const base64 = btoa(String.fromCharCode(...combined));
+
+      document.getElementById('output').textContent = base64;
+    }
+  </script>
+</body>
+</html>

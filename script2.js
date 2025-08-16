@@ -12,10 +12,15 @@ async function loadRemoteSite() {
         const targetRes = await fetch('target.json');
         const targetJson = await targetRes.json();
 
-        const username = decrypt(targetJson.username, passphrase);
-        const repository = decrypt(targetJson.repository, passphrase);
-        const branch = decrypt(targetJson.branch, passphrase);
-        const token = decrypt(targetJson.token, passphrase);
+        const username = await decrypt(targetJson.username, passphrase);
+        const repository = await decrypt(targetJson.repository, passphrase);
+        const branch = await decrypt(targetJson.branch, passphrase);
+        const token = await decrypt(targetJson.token, passphrase);
+
+        console.log('Username:', username);
+        console.log('Repository:', repository);
+        console.log('Branch:', branch);
+        console.log('Token:', token);
 
         if (!username || !repository || !branch || !token) {
             throw new Error('Decryption failed. Check your passphrase.');
@@ -63,9 +68,50 @@ async function loadRemoteSite() {
     }
 }
 
-function decrypt(encrypted, passphrase) {
-    const bytes = CryptoJS.AES.decrypt(encrypted, passphrase);
-    return bytes.toString(CryptoJS.enc.Utf8);
+async function decrypt(encryptedBase64, passphrase) {
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+
+    try {
+        const data = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
+        const iv = data.slice(0, 16);
+        const ciphertext = data.slice(16);
+
+        const keyMaterial = await crypto.subtle.importKey(
+            "raw",
+            encoder.encode(passphrase),
+            { name: "PBKDF2" },
+            false,
+            ["deriveKey"]
+        );
+
+        const key = await crypto.subtle.deriveKey(
+            {
+                name: "PBKDF2",
+                salt: iv,
+                iterations: 100000,
+                hash: "SHA-256"
+            },
+            keyMaterial,
+            { name: "AES-CBC", length: 256 },
+            false,
+            ["decrypt"]
+        );
+
+        const decrypted = await crypto.subtle.decrypt(
+            {
+                name: "AES-CBC",
+                iv: iv
+            },
+            key,
+            ciphertext
+        );
+
+        return decoder.decode(decrypted);
+    } catch (err) {
+        console.error("Decryption failed:", err);
+        return null;
+    }
 }
 
 /**
