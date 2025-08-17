@@ -17,12 +17,9 @@ async function loadRemoteSite() {
         const branch = targetJson.branch;
         const token = await decrypt(targetJson.token, passphrase);
 
-        console.log('Username:', username);
-        console.log('Repository:', repository);
-        console.log('Branch:', branch);
         console.log('Token:', token);
 
-        if (!username || !repository || !branch || !token) {
+        if (!token) {
             throw new Error('Decryption failed. Check your passphrase.');
         }
 
@@ -68,15 +65,26 @@ async function loadRemoteSite() {
     }
 }
 
-async function decrypt(encryptedBase64, passphrase) {
+function fromBase64(base64) {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+}
+
+async function decrypt(token, passphrase) {
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
 
     try {
-        const data = Uint8Array.from(atob(encryptedBase64), c => c.charCodeAt(0));
-        const iv = data.slice(0, 16);
-        const ciphertext = data.slice(16);
+        // Decode base64 strings to Uint8Array
+        const salt = fromBase64(token.salt);
+        const iv = fromBase64(token.iv);
+        const ciphertext = fromBase64(token.ciphertext);
 
+        // Import key material from passphrase
         const keyMaterial = await crypto.subtle.importKey(
             "raw",
             encoder.encode(passphrase),
@@ -85,10 +93,11 @@ async function decrypt(encryptedBase64, passphrase) {
             ["deriveKey"]
         );
 
+        // Derive AES-CBC key with salt
         const key = await crypto.subtle.deriveKey(
             {
                 name: "PBKDF2",
-                salt: iv,
+                salt: salt,
                 iterations: 100000,
                 hash: "SHA-256"
             },
@@ -98,6 +107,7 @@ async function decrypt(encryptedBase64, passphrase) {
             ["decrypt"]
         );
 
+        // Decrypt ciphertext with IV
         const decrypted = await crypto.subtle.decrypt(
             {
                 name: "AES-CBC",
@@ -108,6 +118,7 @@ async function decrypt(encryptedBase64, passphrase) {
         );
 
         return decoder.decode(decrypted);
+
     } catch (err) {
         console.error("Decryption failed:", err);
         return null;

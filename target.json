@@ -2,5 +2,9 @@
     "username": "jorge-botana",
     "repository": "tree_please_do_not_index_me",
     "branch": "master",
-    "token": "CRIAAnqrBXTr6XLdm2W2aotPHb1phOvY7hZ4BOHDGstqfvjfRoch+iVkxpsfFBEbNZWLoyKzFLbHcZXVln7fYj+zcgFH4SJB8pWSGTSQxDFpE3oRI7Hm3600a/uACGP61RFnEThEWp8eWsB1JsWxww=="
+    "token" : {
+        "salt": "pXztMk+kUPusEcGXlbcbJg==",
+        "iv": "Dqvnmqwhgx65GOdfTNvkeg==",
+        "ciphertext": "rPBw0Py28r+6JxEnA/PAU7iPG4sq74bqQt08rSyA+81Gd3lAI3MSADdZctW6WqviJ/Z+ACwUrkpLWQK1RpPoHOyj8C5wmY2eBKRUn0q2IkFH8dhGwJlBjPryQutWEN/A"
+    }
 }
