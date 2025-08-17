@@ -12,9 +12,9 @@ async function loadRemoteSite() {
         const targetRes = await fetch('target.json');
         const targetJson = await targetRes.json();
 
-        const username = await decrypt(targetJson.username, passphrase);
-        const repository = await decrypt(targetJson.repository, passphrase);
-        const branch = await decrypt(targetJson.branch, passphrase);
+        const username = targetJson.username;
+        const repository = targetJson.repository;
+        const branch = targetJson.branch;
         const token = await decrypt(targetJson.token, passphrase);
 
         console.log('Username:', username);
