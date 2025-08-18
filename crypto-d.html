@@ -41,13 +41,14 @@
                 const ciphertextBase64 = document.getElementById("ciphertext").value.trim();
                 const password = document.getElementById("password").value;
 
-                const salt = fromBase64(saltBase64);
-                const iv = fromBase64(ivBase64);
-                const ciphertext = fromBase64(ciphertextBase64);
                 const encoder = new TextEncoder();
                 const decoder = new TextDecoder();
 
                 try {
+                    const salt = fromBase64(saltBase64);
+                    const iv = fromBase64(ivBase64);
+                    const ciphertext = fromBase64(ciphertextBase64);
+
                     // Derive key
                     const keyMaterial = await crypto.subtle.importKey(
                         "raw",
