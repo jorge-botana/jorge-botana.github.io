@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
@@ -8,24 +8,22 @@
 <body>
     <h2>AES-CBC Encryptor</h2>
 
-    <label>Plaintext:</label><br/>
-    <textarea id="plaintext" rows="4" cols="50"></textarea><br/><br/>
+    <strong>Plaintext</strong><br>
+    <textarea id="plaintext" rows="4" cols="60"></textarea><br><br>
 
-    <label>Password (used to derive key):</label><br/>
-    <input type="password" id="password" /><br/><br/>
+    <strong>Password</strong><br>
+    <input id="password" type="password" size="40"/>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+    <button onclick="encryptText()">Encrypt</button><br><br>
 
-    <button onclick="encryptText()">Encrypt</button>
+    <strong>Salt (Base64)</strong><br>
+    <textarea id="salt" rows="1" cols="60" readonly style="background-color: #f0f0f0;"></textarea><br><br>
 
-    <h3>Encryption Result (Base64)</h3>
+    <strong>IV (Base64)</strong><br>
+    <textarea id="iv" rows="1" cols="60" readonly style="background-color: #f0f0f0;"></textarea><br><br>
 
-    <strong>Salt:</strong>
-    <pre id="saltOutput"></pre>
-
-    <strong>IV:</strong>
-    <pre id="ivOutput"></pre>
-
-    <strong>Ciphertext:</strong>
-    <pre id="ciphertextOutput"></pre>
+    <strong>Ciphertext (Base64)</strong><br>
+    <textarea id="ciphertext" rows="4" cols="60" readonly style="background-color: #f0f0f0;"></textarea><br><br>
 
     <script>
         function toBase64(uint8Array) {
@@ -41,48 +39,54 @@
             const password = document.getElementById('password').value;
             const encoder = new TextEncoder();
 
-            // Generate salt and IV
-            const salt = crypto.getRandomValues(new Uint8Array(16));
-            const iv = crypto.getRandomValues(new Uint8Array(16));
+            try {
+                // Generate salt and IV
+                const salt = crypto.getRandomValues(new Uint8Array(16));
+                const iv = crypto.getRandomValues(new Uint8Array(16));
 
-            // Derive key using PBKDF2
-            const keyMaterial = await crypto.subtle.importKey(
-                "raw",
-                encoder.encode(password),
-                { name: "PBKDF2" },
-                false,
-                ["deriveKey"]
-            );
+                // Derive key
+                const keyMaterial = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode(password),
+                    { name: "PBKDF2" },
+                    false,
+                    ["deriveKey"]
+                );
 
-            const key = await crypto.subtle.deriveKey(
-                {
-                    name: "PBKDF2",
-                    salt: salt,
-                    iterations: 100000,
-                    hash: "SHA-256"
-                },
-                keyMaterial,
-                { name: "AES-CBC", length: 256 },
-                false,
-                ["encrypt"]
-            );
+                const key = await crypto.subtle.deriveKey(
+                    {
+                        name: "PBKDF2",
+                        salt: salt,
+                        iterations: 100000,
+                        hash: "SHA-256"
+                    },
+                    keyMaterial,
+                    { name: "AES-CBC", length: 256 },
+                    false,
+                    ["encrypt"]
+                );
 
-            // Encrypt text
-            const ciphertextBuffer = await crypto.subtle.encrypt(
-                {
-                    name: "AES-CBC",
-                    iv: iv
-                },
-                key,
-                encoder.encode(text)
-            );
+                // Encrypt text
+                const ciphertextBuffer = await crypto.subtle.encrypt(
+                    {
+                        name: "AES-CBC",
+                        iv: iv
+                    },
+                    key,
+                    encoder.encode(text)
+                );
 
-            const ciphertext = new Uint8Array(ciphertextBuffer);
+                const ciphertext = new Uint8Array(ciphertextBuffer);
 
-            // Display outputs in order: Salt, IV, Ciphertext
-            document.getElementById('saltOutput').textContent = toBase64(salt);
-            document.getElementById('ivOutput').textContent = toBase64(iv);
-            document.getElementById('ciphertextOutput').textContent = toBase64(ciphertext);
+                // Display outputs
+                document.getElementById('salt').textContent = toBase64(salt);
+                document.getElementById('iv').textContent = toBase64(iv);
+                document.getElementById('ciphertext').textContent = toBase64(ciphertext);
+            } catch (err) {
+                document.getElementById('salt').textContent = "ERROR!";
+                document.getElementById('iv').textContent = "ERROR!";
+                document.getElementById('ciphertext').textContent = "ERROR!";
+            }
         }
     </script>
 </body>
