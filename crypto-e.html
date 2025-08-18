@@ -35,8 +35,8 @@
             }
 
             async function encryptText() {
-                const text = document.getElementById('plaintext').value;
-                const password = document.getElementById('password').value;
+                const text = document.getElementById("plaintext").value;
+                const password = document.getElementById("password").value;
                 const encoder = new TextEncoder();
 
                 try {
@@ -79,13 +79,13 @@
                     const ciphertext = new Uint8Array(ciphertextBuffer);
 
                     // Display outputs
-                    document.getElementById('salt').textContent = toBase64(salt);
-                    document.getElementById('iv').textContent = toBase64(iv);
-                    document.getElementById('ciphertext').textContent = toBase64(ciphertext);
+                    document.getElementById("salt").textContent = toBase64(salt);
+                    document.getElementById("iv").textContent = toBase64(iv);
+                    document.getElementById("ciphertext").textContent = toBase64(ciphertext);
                 } catch (err) {
-                    document.getElementById('salt').textContent = "ERROR!";
-                    document.getElementById('iv').textContent = "ERROR!";
-                    document.getElementById('ciphertext').textContent = "ERROR!";
+                    document.getElementById("salt").textContent = "ERROR!";
+                    document.getElementById("iv").textContent = "ERROR!";
+                    document.getElementById("ciphertext").textContent = "ERROR!";
                 }
             }
         </script>

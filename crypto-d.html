@@ -36,10 +36,10 @@
             }
 
             async function decryptText() {
-                const saltBase64 = document.getElementById('salt').value.trim();
-                const ivBase64 = document.getElementById('iv').value.trim();
-                const ciphertextBase64 = document.getElementById('ciphertext').value.trim();
-                const password = document.getElementById('password').value;
+                const saltBase64 = document.getElementById("salt").value.trim();
+                const ivBase64 = document.getElementById("iv").value.trim();
+                const ciphertextBase64 = document.getElementById("ciphertext").value.trim();
+                const password = document.getElementById("password").value;
 
                 const salt = fromBase64(saltBase64);
                 const iv = fromBase64(ivBase64);
@@ -81,9 +81,9 @@
                     );
 
                     const plaintext = decoder.decode(plaintextBuffer);
-                    document.getElementById('plaintext').textContent = plaintext;
+                    document.getElementById("plaintext").textContent = plaintext;
                 } catch (err) {
-                    document.getElementById('plaintext').textContent = "ERROR!";
+                    document.getElementById("plaintext").textContent = "ERROR!";
                 }
             }
         </script>
