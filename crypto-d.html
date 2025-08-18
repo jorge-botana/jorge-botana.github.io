@@ -1,91 +1,91 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>AES-CBC Text Decryptor</title>
-</head>
-<body>
-    <h2>AES-CBC Decryptor</h2>
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+        <title>AES-CBC Text Decryptor</title>
+    </head>
+    <body>
+        <h2>AES-CBC Decryptor</h2>
 
-    <strong>Salt (Base64)</strong><br>
-    <textarea id="salt" rows="1" cols="60"></textarea><br><br>
+        <strong>Salt (Base64)</strong><br>
+        <textarea id="salt" rows="1" cols="60"></textarea><br><br>
 
-    <strong>IV (Base64)</strong><br>
-    <textarea id="iv" rows="1" cols="60"></textarea><br><br>
+        <strong>IV (Base64)</strong><br>
+        <textarea id="iv" rows="1" cols="60"></textarea><br><br>
 
-    <strong>Ciphertext (Base64)</strong><br>
-    <textarea id="ciphertext" rows="4" cols="60"></textarea><br><br>
+        <strong>Ciphertext (Base64)</strong><br>
+        <textarea id="ciphertext" rows="4" cols="60"></textarea><br><br>
 
-    <strong>Password</strong><br>
-    <input id="password" type="password" size="40"/>
-    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-    <button onclick="decryptText()">Decrypt</button><br><br>
+        <strong>Password</strong><br>
+        <input id="password" type="password" size="40"/>
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <button onclick="decryptText()">Decrypt</button><br><br>
 
-    <strong>Plaintext</strong><br>
-    <textarea id="plaintext" rows="4" cols="60" readonly style="background-color: #f0f0f0;"></textarea>
+        <strong>Plaintext</strong><br>
+        <textarea id="plaintext" rows="4" cols="60" readonly style="background-color: #f0f0f0;"></textarea>
 
-    <script>
-        function fromBase64(base64) {
-            const binary = atob(base64);
-            const bytes = new Uint8Array(binary.length);
-            for (let i = 0; i < binary.length; i++) {
-                bytes[i] = binary.charCodeAt(i);
+        <script>
+            function fromBase64(base64) {
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) {
+                    bytes[i] = binary.charCodeAt(i);
+                }
+                return bytes;
             }
-            return bytes;
-        }
 
-        async function decryptText() {
-            const saltBase64 = document.getElementById('salt').value.trim();
-            const ivBase64 = document.getElementById('iv').value.trim();
-            const ciphertextBase64 = document.getElementById('ciphertext').value.trim();
-            const password = document.getElementById('password').value;
+            async function decryptText() {
+                const saltBase64 = document.getElementById('salt').value.trim();
+                const ivBase64 = document.getElementById('iv').value.trim();
+                const ciphertextBase64 = document.getElementById('ciphertext').value.trim();
+                const password = document.getElementById('password').value;
 
-            const salt = fromBase64(saltBase64);
-            const iv = fromBase64(ivBase64);
-            const ciphertext = fromBase64(ciphertextBase64);
-            const encoder = new TextEncoder();
-            const decoder = new TextDecoder();
+                const salt = fromBase64(saltBase64);
+                const iv = fromBase64(ivBase64);
+                const ciphertext = fromBase64(ciphertextBase64);
+                const encoder = new TextEncoder();
+                const decoder = new TextDecoder();
 
-            try {
-                // Derive key
-                const keyMaterial = await crypto.subtle.importKey(
-                    "raw",
-                    encoder.encode(password),
-                    { name: "PBKDF2" },
-                    false,
-                    ["deriveKey"]
-                );
+                try {
+                    // Derive key
+                    const keyMaterial = await crypto.subtle.importKey(
+                        "raw",
+                        encoder.encode(password),
+                        { name: "PBKDF2" },
+                        false,
+                        ["deriveKey"]
+                    );
 
-                const key = await crypto.subtle.deriveKey(
-                    {
-                        name: "PBKDF2",
-                        salt: salt,
-                        iterations: 100000,
-                        hash: "SHA-256"
-                    },
-                    keyMaterial,
-                    { name: "AES-CBC", length: 256 },
-                    false,
-                    ["decrypt"]
-                );
+                    const key = await crypto.subtle.deriveKey(
+                        {
+                            name: "PBKDF2",
+                            salt: salt,
+                            iterations: 100000,
+                            hash: "SHA-256"
+                        },
+                        keyMaterial,
+                        { name: "AES-CBC", length: 256 },
+                        false,
+                        ["decrypt"]
+                    );
 
-                // Decrypt ciphertext
-                const plaintextBuffer = await crypto.subtle.decrypt(
-                    {
-                        name: "AES-CBC",
-                        iv: iv
-                    },
-                    key,
-                    ciphertext
-                );
+                    // Decrypt ciphertext
+                    const plaintextBuffer = await crypto.subtle.decrypt(
+                        {
+                            name: "AES-CBC",
+                            iv: iv
+                        },
+                        key,
+                        ciphertext
+                    );
 
-                const plaintext = decoder.decode(plaintextBuffer);
-                document.getElementById('plaintext').textContent = plaintext;
-            } catch (err) {
-                document.getElementById('plaintext').textContent = "ERROR!";
+                    const plaintext = decoder.decode(plaintextBuffer);
+                    document.getElementById('plaintext').textContent = plaintext;
+                } catch (err) {
+                    document.getElementById('plaintext').textContent = "ERROR!";
+                }
             }
-        }
-    </script>
-</body>
+        </script>
+    </body>
 </html>
