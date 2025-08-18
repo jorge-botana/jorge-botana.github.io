@@ -1,91 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>AES-CBC Text Decryptor</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>AES-CBC Text Decryptor</title>
 </head>
 <body>
-  <h2>AES-CBC Decryptor</h2>
+    <h2>AES-CBC Decryptor</h2>
 
-  <label>Salt (Base64):</label><br/>
-  <input type="text" id="saltInput" size="60"/><br/><br/>
+    <label>Salt (Base64):</label><br/>
+    <input type="text" id="saltInput" size="60"/><br/><br/>
 
-  <label>IV (Base64):</label><br/>
-  <input type="text" id="ivInput" size="60"/><br/><br/>
+    <label>IV (Base64):</label><br/>
+    <input type="text" id="ivInput" size="60"/><br/><br/>
 
-  <label>Ciphertext (Base64):</label><br/>
-  <textarea id="ciphertextInput" rows="4" cols="60"></textarea><br/><br/>
+    <label>Ciphertext (Base64):</label><br/>
+    <textarea id="ciphertextInput" rows="4" cols="60"></textarea><br/><br/>
 
-  <label>Password (used to derive key):</label><br/>
-  <input type="password" id="password" /><br/><br/>
+    <label>Password (used to derive key):</label><br/>
+    <input type="password" id="password" /><br/><br/>
 
-  <button onclick="decryptText()">Decrypt</button>
+    <button onclick="decryptText()">Decrypt</button>
 
-  <h3>Decrypted Plaintext</h3>
-  <pre id="output"></pre>
+    <h3>Decrypted Plaintext</h3>
+    <pre id="output"></pre>
 
-  <script>
-    function fromBase64(base64) {
-      const binary = atob(base64);
-      const bytes = new Uint8Array(binary.length);
-      for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-      }
-      return bytes;
-    }
+    <script>
+        function fromBase64(base64) {
+            const binary = atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i);
+            }
+            return bytes;
+        }
 
-    async function decryptText() {
-      const saltBase64 = document.getElementById('saltInput').value.trim();
-      const ivBase64 = document.getElementById('ivInput').value.trim();
-      const ciphertextBase64 = document.getElementById('ciphertextInput').value.trim();
-      const password = document.getElementById('password').value;
+        async function decryptText() {
+            const saltBase64 = document.getElementById('saltInput').value.trim();
+            const ivBase64 = document.getElementById('ivInput').value.trim();
+            const ciphertextBase64 = document.getElementById('ciphertextInput').value.trim();
+            const password = document.getElementById('password').value;
 
-      const salt = fromBase64(saltBase64);
-      const iv = fromBase64(ivBase64);
-      const ciphertext = fromBase64(ciphertextBase64);
-      const encoder = new TextEncoder();
-      const decoder = new TextDecoder();
+            const salt = fromBase64(saltBase64);
+            const iv = fromBase64(ivBase64);
+            const ciphertext = fromBase64(ciphertextBase64);
+            const encoder = new TextEncoder();
+            const decoder = new TextDecoder();
 
-      try {
-        // Derive key
-        const keyMaterial = await crypto.subtle.importKey(
-          "raw",
-          encoder.encode(password),
-          { name: "PBKDF2" },
-          false,
-          ["deriveKey"]
-        );
+            try {
+                // Derive key
+                const keyMaterial = await crypto.subtle.importKey(
+                    "raw",
+                    encoder.encode(password),
+                    { name: "PBKDF2" },
+                    false,
+                    ["deriveKey"]
+                );
 
-        const key = await crypto.subtle.deriveKey(
-          {
-            name: "PBKDF2",
-            salt: salt,
-            iterations: 100000,
-            hash: "SHA-256"
-          },
-          keyMaterial,
-          { name: "AES-CBC", length: 256 },
-          false,
-          ["decrypt"]
-        );
+                const key = await crypto.subtle.deriveKey(
+                    {
+                        name: "PBKDF2",
+                        salt: salt,
+                        iterations: 100000,
+                        hash: "SHA-256"
+                    },
+                    keyMaterial,
+                    { name: "AES-CBC", length: 256 },
+                    false,
+                    ["decrypt"]
+                );
 
-        // Decrypt ciphertext
-        const plaintextBuffer = await crypto.subtle.decrypt(
-          {
-            name: "AES-CBC",
-            iv: iv
-          },
-          key,
-          ciphertext
-        );
+                // Decrypt ciphertext
+                const plaintextBuffer = await crypto.subtle.decrypt(
+                    {
+                        name: "AES-CBC",
+                        iv: iv
+                    },
+                    key,
+                    ciphertext
+                );
 
-        const plaintext = decoder.decode(plaintextBuffer);
-        document.getElementById('output').textContent = plaintext;
-      } catch (err) {
-        document.getElementById('output').textContent = 'Decryption failed: ' + err.message;
-      }
-    }
-  </script>
+                const plaintext = decoder.decode(plaintextBuffer);
+                document.getElementById('output').textContent = plaintext;
+            } catch (err) {
+                document.getElementById('output').textContent = 'Decryption failed: ' + err.message;
+            }
+        }
+    </script>
 </body>
 </html>
