@@ -38,15 +38,15 @@
                     const password =
                             document.getElementById("password").value;
 
-                    const encoder = new TextEncoder();
-                    const decoder = new TextDecoder();
-
                     const salt = Uint8Array.from(atob(saltBase64),
                             c => c.charCodeAt(0));
                     const iv = Uint8Array.from(atob(ivBase64),
                             c => c.charCodeAt(0));
                     const ciphertext = Uint8Array.from(atob(ciphertextBase64),
                             c => c.charCodeAt(0));
+
+                    const encoder = new TextEncoder();
+                    const decoder = new TextDecoder();
 
                     const baseKey = await crypto.subtle.importKey(
                         "raw",
