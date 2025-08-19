@@ -40,7 +40,7 @@
                     const iv = crypto.getRandomValues(new Uint8Array(16));
 
                     // Derive key
-                    const keyMaterial = await crypto.subtle.importKey(
+                    const baseKey = await crypto.subtle.importKey(
                         "raw",
                         encoder.encode(password),
                         "PBKDF2",
@@ -55,7 +55,7 @@
                             salt: salt,
                             iterations: 100000
                         },
-                        keyMaterial,
+                        baseKey,
                         {
                             name: "AES-CBC",
                             length: 256
