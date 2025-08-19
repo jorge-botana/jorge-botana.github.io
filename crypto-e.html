@@ -31,15 +31,16 @@
         <script>
             async function encryptText() {
                 try {
-                    const text = document.getElementById("plaintext").value;
-                    const password = document.getElementById("password").value;
-                    const encoder = new TextEncoder();
+                    const plaintext =
+                        document.getElementById("plaintext").value;
+                    const password =
+                        document.getElementById("password").value;
 
-                    // Generate salt and IV
                     const salt = crypto.getRandomValues(new Uint8Array(16));
                     const iv = crypto.getRandomValues(new Uint8Array(16));
 
-                    // Derive key
+                    const encoder = new TextEncoder();
+
                     const baseKey = await crypto.subtle.importKey(
                         "raw",
                         encoder.encode(password),
@@ -64,19 +65,17 @@
                         ["encrypt"]
                     );
 
-                    // Encrypt text
                     const ciphertextBuffer = await crypto.subtle.encrypt(
                         {
                             name: "AES-CBC",
                             iv: iv
                         },
                         key,
-                        encoder.encode(text)
+                        encoder.encode(plaintext)
                     );
 
                     const ciphertext = new Uint8Array(ciphertextBuffer);
 
-                    // Display outputs
                     document.getElementById("salt").textContent =
                             btoa(String.fromCharCode(...salt));
                     document.getElementById("iv").textContent =

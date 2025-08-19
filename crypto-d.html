@@ -48,7 +48,6 @@
                     const ciphertext = Uint8Array.from(atob(ciphertextBase64),
                             c => c.charCodeAt(0));
 
-                    // Derive key
                     const baseKey = await crypto.subtle.importKey(
                         "raw",
                         encoder.encode(password),
@@ -73,7 +72,6 @@
                         ["decrypt"]
                     );
 
-                    // Decrypt ciphertext
                     const plaintextBuffer = await crypto.subtle.decrypt(
                         {
                             name: "AES-CBC",
@@ -84,6 +82,7 @@
                     );
 
                     const plaintext = decoder.decode(plaintextBuffer);
+
                     document.getElementById("plaintext").textContent =
                             plaintext;
                 } catch (err) {
