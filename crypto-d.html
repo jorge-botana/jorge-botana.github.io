@@ -3,10 +3,10 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-        <title>AES-CBC Text Decryptor</title>
+        <title>AES-256-CBC Text Decryptor</title>
     </head>
     <body>
-        <h2>AES-CBC Decryptor</h2>
+        <h2>AES-256-CBC Text Decryptor</h2>
 
         <strong>Salt (Base64)</strong><br>
         <textarea id="salt" rows="1" cols="60"></textarea><br><br>
@@ -17,9 +17,9 @@
         <strong>Ciphertext (Base64)</strong><br>
         <textarea id="ciphertext" rows="4" cols="60"></textarea><br><br>
 
-        <strong>Password</strong><br>
-        <input id="password" type="password" size="40"/>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        <strong>Password (raw, PBKDF2, 10k iterations, SHA-256)</strong><br>
+        <input id="password" type="password" size="48"/>
+        &nbsp;&nbsp;&nbsp;
         <button onclick="decryptText()">Decrypt</button><br><br>
 
         <strong>Plaintext</strong><br>

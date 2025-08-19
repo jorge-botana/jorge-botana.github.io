@@ -3,16 +3,16 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-        <title>AES-CBC Text Encryptor</title>
+        <title>AES-256-CBC Text Encryptor</title>
     </head>
     <body>
-        <h2>AES-CBC Encryptor</h2>
+        <h2>AES-256-CBC Text Encryptor</h2>
 
         <strong>Plaintext</strong><br>
         <textarea id="plaintext" rows="4" cols="60"></textarea><br><br>
 
-        <strong>Password</strong><br>
-        <input id="password" type="password" size="40"/>
+        <strong>Password (raw, PBKDF2, 10k iterations, SHA-256)</strong><br>
+        <input id="password" type="password" size="48"/>
         &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <button onclick="encryptText()">Encrypt</button><br><br>
 
