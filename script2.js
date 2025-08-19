@@ -126,6 +126,7 @@ async function fetchGitHubFile(filePath, { username, repository, branch, token }
     const apiUrl = `https://api.github.com/repos/${username}/${repository}/contents/${filePath}?ref=${branch}`;
 
     const metadataRes = await fetch(apiUrl, {
+        cache: 'no-store',
         headers: {
             Authorization: `Bearer ${token}`,
             Accept: 'application/vnd.github.v3+json'
