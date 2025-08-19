@@ -19,22 +19,13 @@
 
         <strong>Password</strong><br>
         <input id="password" type="password" size="40"/>
-        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+        &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
         <button onclick="decryptText()">Decrypt</button><br><br>
 
         <strong>Plaintext</strong><br>
         <textarea id="plaintext" rows="4" cols="60" readonly style="background-color: #f0f0f0;"></textarea>
 
         <script>
-            function fromBase64(base64) {
-                const binary = atob(base64);
-                const bytes = new Uint8Array(binary.length);
-                for (let i = 0; i < binary.length; i++) {
-                    bytes[i] = binary.charCodeAt(i);
-                }
-                return bytes;
-            }
-
             async function decryptText() {
                 const saltBase64 = document.getElementById("salt").value.trim();
                 const ivBase64 = document.getElementById("iv").value.trim();
@@ -45,9 +36,9 @@
                 const decoder = new TextDecoder();
 
                 try {
-                    const salt = fromBase64(saltBase64);
-                    const iv = fromBase64(ivBase64);
-                    const ciphertext = fromBase64(ciphertextBase64);
+                    const salt = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
+                    const iv = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0));
+                    const ciphertext = Uint8Array.from(atob(ciphertextBase64), c => c.charCodeAt(0));
 
                     // Derive key
                     const keyMaterial = await crypto.subtle.importKey(
