@@ -17,21 +17,24 @@
         <button onclick="encryptText()">Encrypt</button><br><br>
 
         <strong>Salt (Base64)</strong><br>
-        <textarea id="salt" rows="1" cols="60" readonly style="background-color: #f0f0f0;"></textarea><br><br>
+        <textarea id="salt" rows="1" cols="60" readonly
+                style="background-color: #f0f0f0;"></textarea><br><br>
 
         <strong>IV (Base64)</strong><br>
-        <textarea id="iv" rows="1" cols="60" readonly style="background-color: #f0f0f0;"></textarea><br><br>
+        <textarea id="iv" rows="1" cols="60" readonly
+                style="background-color: #f0f0f0;"></textarea><br><br>
 
         <strong>Ciphertext (Base64)</strong><br>
-        <textarea id="ciphertext" rows="4" cols="60" readonly style="background-color: #f0f0f0;"></textarea><br><br>
+        <textarea id="ciphertext" rows="4" cols="60" readonly
+                style="background-color: #f0f0f0;"></textarea><br><br>
 
         <script>
             async function encryptText() {
-                const text = document.getElementById("plaintext").value;
-                const password = document.getElementById("password").value;
-                const encoder = new TextEncoder();
-
                 try {
+                    const text = document.getElementById("plaintext").value;
+                    const password = document.getElementById("password").value;
+                    const encoder = new TextEncoder();
+
                     // Generate salt and IV
                     const salt = crypto.getRandomValues(new Uint8Array(16));
                     const iv = crypto.getRandomValues(new Uint8Array(16));
@@ -74,13 +77,19 @@
                     const ciphertext = new Uint8Array(ciphertextBuffer);
 
                     // Display outputs
-                    document.getElementById("salt").textContent = btoa(String.fromCharCode(...salt));
-                    document.getElementById("iv").textContent = btoa(String.fromCharCode(...iv));
-                    document.getElementById("ciphertext").textContent = btoa(String.fromCharCode(...ciphertext));
+                    document.getElementById("salt").textContent =
+                            btoa(String.fromCharCode(...salt));
+                    document.getElementById("iv").textContent =
+                            btoa(String.fromCharCode(...iv));
+                    document.getElementById("ciphertext").textContent =
+                            btoa(String.fromCharCode(...ciphertext));
                 } catch (err) {
-                    document.getElementById("salt").textContent = "ERROR!";
-                    document.getElementById("iv").textContent = "ERROR!";
-                    document.getElementById("ciphertext").textContent = "ERROR!";
+                    document.getElementById("salt").textContent =
+                            "ERROR!";
+                    document.getElementById("iv").textContent =
+                            "ERROR!";
+                    document.getElementById("ciphertext").textContent =
+                            "ERROR!";
                 }
             }
         </script>

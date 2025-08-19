@@ -23,22 +23,30 @@
         <button onclick="decryptText()">Decrypt</button><br><br>
 
         <strong>Plaintext</strong><br>
-        <textarea id="plaintext" rows="4" cols="60" readonly style="background-color: #f0f0f0;"></textarea>
+        <textarea id="plaintext" rows="4" cols="60" readonly
+                style="background-color: #f0f0f0;"></textarea>
 
         <script>
             async function decryptText() {
-                const saltBase64 = document.getElementById("salt").value.trim();
-                const ivBase64 = document.getElementById("iv").value.trim();
-                const ciphertextBase64 = document.getElementById("ciphertext").value.trim();
-                const password = document.getElementById("password").value;
+                const saltBase64 =
+                        document.getElementById("salt").value.trim();
+                const ivBase64 =
+                        document.getElementById("iv").value.trim();
+                const ciphertextBase64 =
+                        document.getElementById("ciphertext").value.trim();
+                const password =
+                        document.getElementById("password").value;
 
                 const encoder = new TextEncoder();
                 const decoder = new TextDecoder();
 
                 try {
-                    const salt = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
-                    const iv = Uint8Array.from(atob(ivBase64), c => c.charCodeAt(0));
-                    const ciphertext = Uint8Array.from(atob(ciphertextBase64), c => c.charCodeAt(0));
+                    const salt = Uint8Array.from(atob(saltBase64),
+                            c => c.charCodeAt(0));
+                    const iv = Uint8Array.from(atob(ivBase64),
+                            c => c.charCodeAt(0));
+                    const ciphertext = Uint8Array.from(atob(ciphertextBase64),
+                            c => c.charCodeAt(0));
 
                     // Derive key
                     const keyMaterial = await crypto.subtle.importKey(
@@ -76,9 +84,11 @@
                     );
 
                     const plaintext = decoder.decode(plaintextBuffer);
-                    document.getElementById("plaintext").textContent = plaintext;
+                    document.getElementById("plaintext").textContent =
+                            plaintext;
                 } catch (err) {
-                    document.getElementById("plaintext").textContent = "ERROR!";
+                    document.getElementById("plaintext").textContent =
+                            "ERROR!";
                 }
             }
         </script>
