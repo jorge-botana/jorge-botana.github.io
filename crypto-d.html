@@ -17,7 +17,7 @@
         <strong>Ciphertext (Base64)</strong><br>
         <textarea id="ciphertext" rows="4" cols="60"></textarea><br><br>
 
-        <strong>Password (raw, PBKDF2, 10k iterations, SHA-256)</strong><br>
+        <strong>Password (raw, PBKDF2, 100k iterations, SHA-256)</strong><br>
         <input id="password" type="password" size="48"/>
         &nbsp;&nbsp;&nbsp;
         <button onclick="decryptText()">Decrypt</button><br><br>
@@ -44,7 +44,7 @@
                     const keyMaterial = await crypto.subtle.importKey(
                         "raw",
                         encoder.encode(password),
-                        { name: "PBKDF2" },
+                        "PBKDF2",
                         false,
                         ["deriveKey"]
                     );
@@ -52,12 +52,15 @@
                     const key = await crypto.subtle.deriveKey(
                         {
                             name: "PBKDF2",
+                            hash: "SHA-256",
                             salt: salt,
-                            iterations: 100000,
-                            hash: "SHA-256"
+                            iterations: 100000
                         },
                         keyMaterial,
-                        { name: "AES-CBC", length: 256 },
+                        {
+                            name: "AES-CBC",
+                            length: 256
+                        },
                         false,
                         ["decrypt"]
                     );
