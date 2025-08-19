@@ -65,50 +65,43 @@ async function loadRemoteSite() {
     }
 }
 
-function fromBase64(base64) {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-        bytes[i] = binary.charCodeAt(i);
-    }
-    return bytes;
-}
-
-async function decrypt(token, passphrase) {
-    const encoder = new TextEncoder();
-    const decoder = new TextDecoder();
-
+async function decrypt(token, password) {
     try {
-        // Decode base64 strings to Uint8Array
-        const salt = fromBase64(token.salt);
-        const iv = fromBase64(token.iv);
-        const ciphertext = fromBase64(token.ciphertext);
+        const salt = Uint8Array.from(atob(token.salt),
+                c => c.charCodeAt(0));
+        const iv = Uint8Array.from(atob(token.iv),
+                c => c.charCodeAt(0));
+        const ciphertext = Uint8Array.from(atob(token.ciphertext),
+                c => c.charCodeAt(0));
 
-        // Import key material from passphrase
-        const keyMaterial = await crypto.subtle.importKey(
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
+
+        const baseKey = await crypto.subtle.importKey(
             "raw",
-            encoder.encode(passphrase),
-            { name: "PBKDF2" },
+            encoder.encode(password),
+            "PBKDF2",
             false,
             ["deriveKey"]
         );
 
-        // Derive AES-CBC key with salt
         const key = await crypto.subtle.deriveKey(
             {
                 name: "PBKDF2",
+                hash: "SHA-256",
                 salt: salt,
-                iterations: 100000,
-                hash: "SHA-256"
+                iterations: 100000
             },
-            keyMaterial,
-            { name: "AES-CBC", length: 256 },
+            baseKey,
+            {
+                name: "AES-CBC",
+                length: 256
+            },
             false,
             ["decrypt"]
         );
 
-        // Decrypt ciphertext with IV
-        const decrypted = await crypto.subtle.decrypt(
+        const plaintextBuffer = await crypto.subtle.decrypt(
             {
                 name: "AES-CBC",
                 iv: iv
@@ -117,8 +110,9 @@ async function decrypt(token, passphrase) {
             ciphertext
         );
 
-        return decoder.decode(decrypted);
+        const plaintext = decoder.decode(plaintextBuffer);
 
+        return plaintext;
     } catch (err) {
         console.error("Decryption failed:", err);
         return null;
