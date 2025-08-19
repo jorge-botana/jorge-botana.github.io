@@ -76,12 +76,19 @@
 
                     const ciphertext = new Uint8Array(ciphertextBuffer);
 
-                    document.getElementById("salt").textContent =
+                    const saltBase64 =
                             btoa(String.fromCharCode(...salt));
-                    document.getElementById("iv").textContent =
+                    const ivBase64 =
                             btoa(String.fromCharCode(...iv));
-                    document.getElementById("ciphertext").textContent =
+                    const ciphertextBase64 =
                             btoa(String.fromCharCode(...ciphertext));
+
+                    document.getElementById("salt").textContent =
+                            saltBase64;
+                    document.getElementById("iv").textContent =
+                            ivBase64;
+                    document.getElementById("ciphertext").textContent =
+                            ciphertextBase64;
                 } catch (err) {
                     document.getElementById("salt").textContent =
                             "ERROR!";
