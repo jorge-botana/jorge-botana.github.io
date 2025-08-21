@@ -1,13 +1,40 @@
 <!DOCTYPE html>
     <head>
-        <title>Private Web Viewer</title>
+        <title>Jorge Botana's Private Site</title>
     </head>
 
     <body>
-        <h1>Loading...</h1>
+        <h1>Jorge Botana's Private Site</h1>
+
+        <label for="userInput">Enter the password to unlock the content:</label>
+        <input type="text" id="userInput" name="userInput">
+        <button onclick="loadRemoteSite()">Submit</button>
+
         <script>
             console.log("Loading!");
         </script>
-        <script src="script2.js"></script>
+        <script src="script.js"></script>
+
+
+        <script>
+            // Function to get a URL parameter by name
+            function getParameterByName(name) {
+                const urlParams = new URLSearchParams(window.location.search);
+                return urlParams.get(name);
+            }
+
+            // Autofill input field if 'pass' parameter exists
+            window.onload = function() {
+                const passValue = getParameterByName('pass');
+                if (passValue !== null) {
+                    document.getElementById('userInput').value = passValue;
+                }
+            }
+
+//            function submitInput() {
+//                const input = document.getElementById("userInput").value;
+//                document.getElementById("output").textContent = "You entered: " + input;
+//            }
+        </script>
     </body>
 </html>

@@ -1,162 +1,235 @@
-async function loadSite() {
-    const params = new URLSearchParams(window.location.search);
-    const passphrase = params.get('pass');
+async function loadRemoteSite() {
+//    const params = new URLSearchParams(window.location.search);
+//    const passphrase = params.get('pass');
+
+        const passphrase = document.getElementById("userInput").value;
+        console.log("Entered password:", passphrase);
 
     if (!passphrase) {
         document.body.innerHTML =
-                '<p>Error: No passphrase provided in URL (use ?pass=1234)</p>';
+            '<p>Error: No passphrase provided in URL (use ?pass=1234)</p>';
         return;
     }
 
     try {
-        // 1. Load and decrypt token
         const targetRes = await fetch('target.json');
         const targetJson = await targetRes.json();
 
-        const encUsername = targetJson.username;
-        const encRepository = targetJson.repository;
-        const encBranch = targetJson.branch;
-        const encToken = targetJson.token;
+        const username = targetJson.username;
+        const repository = targetJson.repository;
+        const branch = targetJson.branch;
+        const token = await decrypt(targetJson.token, passphrase);
 
-        const decUsername = CryptoJS.AES.decrypt(encUsername, passphrase);
-        const username = decUsername.toString(CryptoJS.enc.Utf8);
-        console.log('Username:', username);
-
-        const decRepository = CryptoJS.AES.decrypt(encRepository, passphrase);
-        const repository = decRepository.toString(CryptoJS.enc.Utf8);
-        console.log('Repository:', repository);
-
-        const decBranch = CryptoJS.AES.decrypt(encBranch, passphrase);
-        const branch = decBranch.toString(CryptoJS.enc.Utf8);
-        console.log('Branch:', branch);
-
-        const decToken = CryptoJS.AES.decrypt(encToken, passphrase);
-        const token = decToken.toString(CryptoJS.enc.Utf8);
         console.log('Token:', token);
 
-        // GitHub API base URL for accessing private repository contents
-        const apiBase = `https://api.github.com/repos/${username}/${repository}/contents`;
-
-        // Helper: Fetch file metadata from GitHub API
-        async function fetchFileMetadata(path) {
-            const url = `${apiBase}/${path}?ref=${branch}`;
-            const res = await fetch(url, {
-                headers: {
-                    Authorization: `token ${token}`,
-                    Accept: 'application/vnd.github.v3+json'
-                }
-            });
-
-            if (!res.ok) {
-                throw new Error(`Failed to fetch file metadata for ${path}: ${res.status}`);
-            }
-
-            return res.json(); // Return the metadata of the file
+        if (!token) {
+            throw new Error('Decryption failed. Check your passphrase.');
         }
 
-        // Helper: Fetch raw content from GitHub API
-        async function fetchFile(path) {
-            const metadata = await fetchFileMetadata(path);
+        const context = { username, repository, branch, token };
 
-            // If it's a file (not a directory), get the raw URL
-            if (metadata.type === 'file') {
-                return metadata.download_url;
-            }
-
-            throw new Error(`Expected file, but got a directory: ${path}`);
-        }
-
-        // 3. Load manifest (site.json) to get the list of assets like images
-        const manifestUrl = await fetchFile('site.json');
-        const manifestRes = await fetch(manifestUrl);
-        if (!manifestRes.ok) {
-            console.error('Error fetching site.json:', manifestRes.status, manifestRes.statusText);
-            throw new Error('Failed to fetch site.json');
-        }
-        const manifestText = await manifestRes.text();
-        console.log('site.json content:', manifestText);
-
-        const fileList = JSON.parse(manifestText); // This will now throw an error if the content is invalid JSON
-
-        // 4. Fetch all image URLs (or other assets) into memory
-        const fileUrls = {};
-        for (const path of fileList) {
-            const url = await fetchFile(path);
-            fileUrls[path] = url;
-        }
-
-        // 5. Rewrite HTML paths to real GitHub URLs (for images, CSS, JS, etc.)
-        let mainHtml = await fetchFile('index.html');
-        mainHtml = await fetch(mainHtml).then(res => res.text());
-        mainHtml = rewritePaths(mainHtml, fileUrls);
-
-        // 6. Render the page (inject HTML and execute scripts)
-        const originalTitle = document.title;
-        document.documentElement.innerHTML = mainHtml;
-        document.title = originalTitle;
-
-        // 7. Execute scripts in the page
-        executeScripts(mainHtml);
-
-        const myButton = document.getElementById('downloadBtn');
-        if (myButton) {
-            myButton.addEventListener('click', async function() {
-                console.log('Download button pressed!');
-
-                try {
-                    // Fetch the metadata for the download.zip file from GitHub
-                    const metadata = await fetchFileMetadata('download.zip');
-
-                    if (metadata.type === 'file') {
-                        // Get the raw URL for the download.zip file
-                        const zipFileUrl = metadata.download_url;
-
-                        // Initiate the download by setting location.href
-                        window.location.href = zipFileUrl;
-                        console.log('Downloading:', zipFileUrl);
-                    } else {
-                        console.error('download.zip is not a file or does not exist.');
-                    }
-                } catch (error) {
-                    console.error('Error fetching download.zip:', error);
-                }
-            });
-        }
-    } catch (err) {
-        document.body.innerHTML = `<p>Error loading site: ${err.message}</p>`;
-    }
-}
-
-// Utility: replace relative paths in HTML with GitHub raw URLs
-function rewritePaths(html, rawUrls) {
-    for (const [path, rawUrl] of Object.entries(rawUrls)) {
-        const safePath = path.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
-        const regex = new RegExp(`(["'])${safePath}\\1`, 'g');
-        html = html.replace(regex, `"${rawUrl}"`);
-    }
-    return html;
-}
-
-// Function to execute <script> tags in HTML after the page is loaded
-function executeScripts(html) {
-    const scriptTags = html.match(/<script[^>]*>([\s\S]*?)<\/script>/g);
-
-    if (scriptTags) {
-        scriptTags.forEach(tag => {
-            const scriptContent = tag.replace(/<script[^>]*>|<\/script>/g, '').trim();
-            const scriptElement = document.createElement('script');
-            scriptElement.textContent = scriptContent;
-            document.body.appendChild(scriptElement);
+        // Get download_url for index.html
+        const indexHtmlUrl = await fetchGitHubFile('index.html', context);
+        // Fetch actual content of index.html from that url
+        const indexHtml = await fetch(indexHtmlUrl).then(res => {
+            if (!res.ok) throw new Error(`Failed to fetch index.html content: ${res.status}`);
+            return res.text();
         });
+
+        const { html, externalScripts } = await processHtml(indexHtml, context);
+
+        document.body.innerHTML = html;
+
+        // Re-inject external scripts at original positions
+        for (const { elementId, codeUrl } of externalScripts) {
+            const placeholder = document.getElementById(elementId);
+            if (placeholder) {
+                // Fetch script content using download_url
+                const code = await fetch(codeUrl).then(res => {
+                    if (!res.ok) throw new Error(`Failed to fetch script content: ${res.status}`);
+                    return res.text();
+                });
+                const script = document.createElement('script');
+                script.textContent = code;
+                placeholder.replaceWith(script);
+            }
+        }
+
+        // Re-inject inline scripts
+        document.querySelectorAll('.delayed-inline-script').forEach(el => {
+            const script = document.createElement('script');
+            script.textContent = el.textContent;
+            el.replaceWith(script);
+        });
+
+    } catch (err) {
+        document.body.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+        console.error('Load error:', err);
     }
 }
 
-const cdnBase = "https://cdnjs.cloudflare.com/ajax/libs/";
-const libPath = "crypto-js/4.2.0/crypto-js.min.js";
-const fullSrc = cdnBase + libPath;
+async function decrypt(token, password) {
+    try {
+        const salt = Uint8Array.from(atob(token.salt),
+                c => c.charCodeAt(0));
+        const iv = Uint8Array.from(atob(token.iv),
+                c => c.charCodeAt(0));
+        const ciphertext = Uint8Array.from(atob(token.ciphertext),
+                c => c.charCodeAt(0));
 
-const script = document.createElement('script');
-script.src = fullSrc;
-document.head.appendChild(script);
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
 
-window.onload = loadSite;
+        const baseKey = await crypto.subtle.importKey(
+            "raw",
+            encoder.encode(password),
+            "PBKDF2",
+            false,
+            ["deriveKey"]
+        );
+
+        const key = await crypto.subtle.deriveKey(
+            {
+                name: "PBKDF2",
+                hash: "SHA-256",
+                salt: salt,
+                iterations: 100000
+            },
+            baseKey,
+            {
+                name: "AES-CBC",
+                length: 256
+            },
+            false,
+            ["decrypt"]
+        );
+
+        const plaintextBuffer = await crypto.subtle.decrypt(
+            {
+                name: "AES-CBC",
+                iv: iv
+            },
+            key,
+            ciphertext
+        );
+
+        const plaintext = decoder.decode(plaintextBuffer);
+
+        return plaintext;
+    } catch (err) {
+        console.error("Decryption failed:", err);
+        return null;
+    }
+}
+
+/**
+ * fetchGitHubFile always returns download_url string for the file
+ */
+async function fetchGitHubFile(filePath, { username, repository, branch, token }) {
+    const apiUrl = `https://api.github.com/repos/${username}/${repository}/contents/${filePath}?ref=${branch}`;
+
+    const metadataRes = await fetch(apiUrl, {
+        cache: 'no-store',
+        headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: 'application/vnd.github.v3+json'
+        }
+    });
+
+    if (!metadataRes.ok) {
+        throw new Error(`Failed to fetch metadata for ${filePath}: ${metadataRes.status}`);
+    }
+
+    const metadata = await metadataRes.json();
+
+    if (!metadata.download_url) {
+        throw new Error(`No download_url found for ${filePath}`);
+    }
+
+    return metadata.download_url;
+}
+
+async function processHtml(htmlText, context) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(htmlText, 'text/html');
+
+    const externalScripts = [];
+    let scriptCounter = 0;
+
+    // Handle <script> tags
+    const scripts = doc.querySelectorAll('script');
+    for (const script of scripts) {
+        const placeholderId = `script-placeholder-${++scriptCounter}`;
+        const placeholder = document.createElement('div');
+        placeholder.id = placeholderId;
+
+        if (script.src) {
+            const originalSrc = script.getAttribute('src');
+            const normalizedPath = originalSrc.startsWith('/') ? originalSrc.slice(1) : originalSrc;
+            // get download_url of script file
+            const codeUrl = await fetchGitHubFile(normalizedPath, context);
+            externalScripts.push({ elementId: placeholderId, codeUrl });
+            script.replaceWith(placeholder);
+        } else {
+            script.classList.add('delayed-inline-script');
+            script.type = 'text/plain';
+        }
+    }
+
+    // Update all src and href attributes
+    const elements = doc.querySelectorAll('[src], [href]');
+    await Promise.all(Array.from(elements).map(async el => {
+        const attr = el.hasAttribute('src') ? 'src' : 'href';
+        const val = el.getAttribute(attr);
+        if (!val || val.startsWith('http') || val.startsWith('data:')) return;
+
+        const normalizedPath = val.startsWith('/') ? val.slice(1) : val;
+
+        try {
+            // get download_url
+            const downloadUrl = await fetchGitHubFile(normalizedPath, context);
+            el.setAttribute(attr, downloadUrl);
+        } catch (e) {
+            console.warn(`Failed to update ${attr} for ${normalizedPath}: ${e.message}`);
+            // fallback to raw.githubusercontent URL (no token)
+            el.setAttribute(attr, githubRawAssetUrl(normalizedPath, context));
+        }
+    }));
+
+    // Patch inline onclick="downloadFile('filename')" to dynamic fetch + call
+    const onclickElements = doc.querySelectorAll('[onclick]');
+    onclickElements.forEach(el => {
+        const onclick = el.getAttribute('onclick');
+        if (!onclick) return;
+
+        // Match downloadFile('somefile.ext') call, extract filename inside quotes
+        const match = onclick.match(/downloadFile\(['"](.+?)['"]\)/);
+        if (match) {
+            const filename = match[1];
+            // Replace onclick content with async IIFE to fetch dynamic URL
+            el.setAttribute('onclick', `
+                (async () => {
+                    try {
+                        const url = await fetchGitHubFile('${filename}', ${JSON.stringify(context)});
+                        downloadFile(url);
+                    } catch (err) {
+                        alert('Download failed: ' + err.message);
+                    }
+                })();
+                return false;
+            `);
+        }
+    });
+
+    return {
+        html: doc.body.innerHTML,
+        externalScripts
+    };
+}
+
+function githubRawAssetUrl(path, { username, repository, branch }) {
+    return `https://raw.githubusercontent.com/${username}/${repository}/${branch}/${path}`;
+}
+
+// Start loading
+//loadRemoteSite();
