@@ -22,7 +22,7 @@
         <script>
             console.log("Loading!");
         </script>
-        <script src="script.js"></script>
+        <script src="loader.js"></script>
 
         <script>
             const input = document.getElementById("userInput");
@@ -57,9 +57,10 @@
                 toggleBtn.textContent = 'Show';
             });
 
-            function foo(event) {
+            async function foo(event) {
                 event.preventDefault();
-                if (input.value !== "1234") {
+                const ret = await decrypt(targetJson.token, input.value);
+                if (ret == null) {
                     input.classList.add("error");
                     errorMsg.classList.add("active");
                 } else {
@@ -68,7 +69,8 @@
                     //alert("Login correcto");
                     // Aquí puedes redirigir al usuario o continuar el flujo
                 }
-                loadRemoteSite()
+                //loadRemoteSite()
+
             }
         </script>
 
