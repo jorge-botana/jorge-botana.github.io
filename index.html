@@ -1,20 +1,76 @@
 <!DOCTYPE html>
     <head>
         <title>Jorge Botana's Private Site</title>
+        <link rel="stylesheet" href="style.css"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     </head>
 
     <body>
-        <h1>Jorge Botana's Private Site</h1>
-
-        <label for="userInput">Enter the password to unlock the content:</label>
-        <input type="text" id="userInput" name="userInput">
-        <button onclick="loadRemoteSite()">Submit</button>
+        <div class="card">
+            <h1>Jorge Botana's Private Site</h1>
+            <form onsubmit="foo(event)">
+                <div class="inputBox">
+                    <input type="password" id="userInput" name="userInput" placeholder=" " required>
+                    <label for="userInput">Access Code</label>
+                    <button type="button" id="toggleBtn" class="toggle-btn">Show</button>
+                </div>
+                <div id="errorMsg" class="error-message">Wrong Access Code</div>
+                <button type="submit" class="submit-btn">Submit</button>
+            </form>
+        </div>
 
         <script>
             console.log("Loading!");
         </script>
         <script src="script.js"></script>
 
+        <script>
+            const input = document.getElementById("userInput");
+            const toggleBtn = document.getElementById("toggleBtn");
+            const errorMsg = document.getElementById("errorMsg");
+
+            toggleBtn.addEventListener('mousedown', () => {
+                input.type = 'text';
+                toggleBtn.textContent = 'Hide';
+            });
+
+            toggleBtn.addEventListener('mouseup', () => {
+                input.type = 'password';
+                toggleBtn.textContent = 'Show';
+            });
+
+            toggleBtn.addEventListener('mouseleave', () => {
+                // En caso de que el mouse salga del botón mientras está presionado
+                input.type = 'password';
+                toggleBtn.textContent = 'Show';
+            });
+
+            // Para dispositivos táctiles
+            toggleBtn.addEventListener('touchstart', (e) => {
+                e.preventDefault(); // evita que se active el click también
+                input.type = 'text';
+                toggleBtn.textContent = 'Hide';
+            });
+
+            toggleBtn.addEventListener('touchend', () => {
+                input.type = 'password';
+                toggleBtn.textContent = 'Show';
+            });
+
+            function foo(event) {
+                event.preventDefault();
+                if (input.value !== "1234") {
+                    input.classList.add("error");
+                    errorMsg.classList.add("active");
+                } else {
+                    input.classList.remove("error");
+                    errorMsg.classList.remove("active");
+                    //alert("Login correcto");
+                    // Aquí puedes redirigir al usuario o continuar el flujo
+                }
+                loadRemoteSite()
+            }
+        </script>
 
         <script>
             // Function to get a URL parameter by name
