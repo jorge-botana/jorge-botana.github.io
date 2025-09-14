@@ -48,6 +48,9 @@ body {
 .inputBox input.error {
     border-color: red;
 }
+.inputBox input.okay {
+    border-color: green;
+}
 
 .inputBox label {
     position: absolute;
@@ -72,6 +75,10 @@ body {
 .inputBox input.error:not(:placeholder-shown) + label {
     color: red;
 }
+.inputBox input.okay:focus + label,
+.inputBox input.okay:not(:placeholder-shown) + label {
+    color: green;
+}
 
 .toggle-btn {
     position: absolute;
@@ -85,6 +92,7 @@ body {
     cursor: pointer;
     padding: 0;
     user-select: none; /* evita selección accidental */
+    font-family: Courier, monospace;
 }
 
 .toggle-btn:focus {
@@ -107,8 +115,7 @@ body {
     background-color: #0056b3;
 }
 
-.error-message {
-    color: red;
+.submit-msg {
     font-size: 14px;
     height: 18px;
     visibility: hidden;
@@ -116,6 +123,6 @@ body {
     margin-bottom: 15px;
 }
 
-.error-message.active {
+.submit-msg.active {
     visibility: visible;
 }

@@ -1,20 +1,5 @@
 let targetJson;
 
-async function loadTarget() {
-    const targetRes = await fetch('target.json');
-    return await targetRes.json();
-}
-
-async function init() {
-    targetJson = await loadTarget();
-    console.log('targetJson loaded:', targetJson);
-    // You can continue your flow here, for example:
-    // foo(); // call your decrypt/login function now that targetJson is loaded
-}
-
-
-
-
 async function decrypt(token, password) {
     try {
         const salt = Uint8Array.from(atob(token.salt),
@@ -69,31 +54,36 @@ async function decrypt(token, password) {
     }
 }
 
-init();
-
 // Function to get a URL parameter by name
 function getParameterByName(name) {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get(name);
 }
 
-// Autofill input field if 'pass' parameter exists
-window.onload = function() {
+
+async function loadTarget() {
+    const targetRes = await fetch('target.json');
+    return await targetRes.json();
+}
+
+
+document.addEventListener("DOMContentLoaded", async function() { // //window.onload = function() {
+    // Autofill input field if 'pass' parameter exists
     const passValue = getParameterByName('pass');
     if (passValue !== null) {
         document.getElementById('userInput').value = passValue;
     }
-}
 
-//    function submitInput() {
-//        const input = document.getElementById("userInput").value;
-//        document.getElementById("output").textContent = "You entered: " + input;
-//    }
+    // Fetch target.json
+    targetJson = await loadTarget();
+    console.log('targetJson loaded:', targetJson);
+});
+
 
 
 const input = document.getElementById("userInput");
 const toggleBtn = document.getElementById("toggleBtn");
-const errorMsg = document.getElementById("errorMsg");
+const submitMsg = document.getElementById("submitMsg");
 
 toggleBtn.addEventListener('mousedown', () => {
     input.type = 'text';
@@ -123,18 +113,30 @@ toggleBtn.addEventListener('touchend', () => {
     toggleBtn.textContent = 'Show';
 });
 
-async function foo(event) {
+async function submitInput(event) {
+    // Do not reload page on submit
     event.preventDefault();
+
+    // Decrypt the encrypt token
     const ret = await decrypt(targetJson.token, input.value);
     if (ret == null) {
+        document.getElementById("submitMsg").textContent = "Wrong Access Code";
+        document.getElementById("submitMsg").style.color = "red";
         input.classList.add("error");
-        errorMsg.classList.add("active");
+        input.classList.remove("okay");
     } else {
+        document.getElementById("submitMsg").textContent = "Correct Access Code";
+        document.getElementById("submitMsg").style.color = "green";
         input.classList.remove("error");
-        errorMsg.classList.remove("active");
-        //alert("Login correcto");
+        input.classList.add("okay");
+        // alert("Login correcto");
         // Aquí puedes redirigir al usuario o continuar el flujo
     }
+    submitMsg.classList.add("active");
     //loadRemoteSite()
-
 }
+
+//    function submitInput() {
+//        const input = document.getElementById("userInput").value;
+//        document.getElementById("output").textContent = "You entered: " + input;
+//    }

@@ -8,13 +8,13 @@
     <body>
         <div class="card">
             <h1>Jorge Botana's Private Site</h1>
-            <form onsubmit="foo(event)">
+            <form onsubmit="submitInput(event)">
                 <div class="inputBox">
                     <input type="password" id="userInput" name="userInput" placeholder=" " required>
                     <label for="userInput">Access Code</label>
                     <button type="button" id="toggleBtn" class="toggle-btn">Show</button>
                 </div>
-                <div id="errorMsg" class="error-message">Wrong Access Code</div>
+                <div id="submitMsg" class="submit-msg"></div>
                 <button type="submit" class="submit-btn">Submit</button>
             </form>
         </div>
