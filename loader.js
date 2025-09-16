@@ -66,13 +66,6 @@ function getParameterByName(name) {
     return urlParams.get(name);
 }
 
-
-async function loadTarget() {
-    const targetRes = await fetch('target.json');
-    return await targetRes.json();
-}
-
-
 document.addEventListener("DOMContentLoaded", async function() { // //window.onload = function() {
     // Autofill input field if 'pass' parameter exists
     const passValue = getParameterByName('pass');
@@ -81,34 +74,33 @@ document.addEventListener("DOMContentLoaded", async function() { // //window.onl
     }
 
     // Fetch target.json
-    targetJson = await loadTarget();
+    const targetRes = await fetch('target.json');
+    targetJson = await targetRes.json();
     console.log('targetJson loaded:', targetJson);
 });
 
 async function submitInput(event) {
-    // Do not reload page on submit
+    // Do not reload page on submit.
     event.preventDefault();
 
-    // Decrypt the encrypt token
+    // Try decrypting the token.
     token = await decrypt(targetJson.token, input.value);
+
+    document.querySelector('.submit-btn').disabled = true;
+
+    // Load the page if the token was decrypted (if the access code is correct).
     if (token == null) {
         document.getElementById("submitMsg").textContent = "Wrong access code. Please try again.";
         document.getElementById("submitMsg").style.color = "red";
         input.classList.add("error");
         input.classList.remove("okay");
+        document.querySelector('.submit-btn').disabled = false;
     } else {
         document.getElementById("submitMsg").textContent = "Correct access code. Now loading...";
         document.getElementById("submitMsg").style.color = "green";
         input.classList.remove("error");
         input.classList.add("okay");
-        // alert("Login correcto");
-        // Aquí puedes redirigir al usuario o continuar el flujo
         loadRemoteSite();
     }
     submitMsg.classList.add("active");
 }
-
-//    function submitInput() {
-//        const input = document.getElementById("userInput").value;
-//        document.getElementById("output").textContent = "You entered: " + input;
-//    }
