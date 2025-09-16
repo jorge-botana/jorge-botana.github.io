@@ -1,4 +1,10 @@
 let targetJson;
+let token;
+
+const input = document.getElementById("userInput");
+const toggleBtn = document.getElementById("toggleBtn");
+const submitMsg = document.getElementById("submitMsg");
+
 
 async function decrypt(token, password) {
     try {
@@ -79,61 +85,27 @@ document.addEventListener("DOMContentLoaded", async function() { // //window.onl
     console.log('targetJson loaded:', targetJson);
 });
 
-
-
-const input = document.getElementById("userInput");
-const toggleBtn = document.getElementById("toggleBtn");
-const submitMsg = document.getElementById("submitMsg");
-
-toggleBtn.addEventListener('mousedown', () => {
-    input.type = 'text';
-    toggleBtn.textContent = 'Hide';
-});
-
-toggleBtn.addEventListener('mouseup', () => {
-    input.type = 'password';
-    toggleBtn.textContent = 'Show';
-});
-
-toggleBtn.addEventListener('mouseleave', () => {
-    // En caso de que el mouse salga del botón mientras está presionado
-    input.type = 'password';
-    toggleBtn.textContent = 'Show';
-});
-
-// Para dispositivos táctiles
-toggleBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault(); // evita que se active el click también
-    input.type = 'text';
-    toggleBtn.textContent = 'Hide';
-});
-
-toggleBtn.addEventListener('touchend', () => {
-    input.type = 'password';
-    toggleBtn.textContent = 'Show';
-});
-
 async function submitInput(event) {
     // Do not reload page on submit
     event.preventDefault();
 
     // Decrypt the encrypt token
-    const ret = await decrypt(targetJson.token, input.value);
-    if (ret == null) {
-        document.getElementById("submitMsg").textContent = "Wrong Access Code";
+    token = await decrypt(targetJson.token, input.value);
+    if (token == null) {
+        document.getElementById("submitMsg").textContent = "Wrong access code. Please try again.";
         document.getElementById("submitMsg").style.color = "red";
         input.classList.add("error");
         input.classList.remove("okay");
     } else {
-        document.getElementById("submitMsg").textContent = "Correct Access Code";
+        document.getElementById("submitMsg").textContent = "Correct access code. Now loading...";
         document.getElementById("submitMsg").style.color = "green";
         input.classList.remove("error");
         input.classList.add("okay");
         // alert("Login correcto");
         // Aquí puedes redirigir al usuario o continuar el flujo
+        loadRemoteSite();
     }
     submitMsg.classList.add("active");
-    //loadRemoteSite()
 }
 
 //    function submitInput() {
