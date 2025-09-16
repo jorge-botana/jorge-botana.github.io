@@ -1,10 +1,55 @@
+const toggleBtn = document.getElementById("toggleBtn");
+const input = document.getElementById("userInput");
+const submitMsg = document.getElementById("submitMsg");
+
 let targetJson;
 let token;
 
-const input = document.getElementById("userInput");
-const toggleBtn = document.getElementById("toggleBtn");
-const submitMsg = document.getElementById("submitMsg");
+document.addEventListener("DOMContentLoaded", async function() {
+    // Inline getParameterByName functionality
+    const urlParams = new URLSearchParams(window.location.search);
+    const passValue = urlParams.get('pass');
+    if (passValue !== null) {
+        document.getElementById('userInput').value = passValue;
+    }
 
+    // Fetch target.json
+    const targetRes = await fetch('target.json');
+    targetJson = await targetRes.json();
+    console.log('targetJson loaded:', targetJson);
+});
+
+toggleBtn.addEventListener('click', function () {
+    input.type = input.type === 'password' ? 'text' : 'password';
+    this.textContent = input.type === 'password' ? 'Show' : 'Hide';
+});
+
+async function submitInput(event) {
+    // Do not reload page on submit.
+    event.preventDefault();
+
+    // Try decrypting the token.
+    token = await decrypt(targetJson.token, input.value);
+
+    // Load the page if the token was decrypted (if the access code is correct).
+    document.querySelector('.submit-btn').disabled = true;
+    if (token == null) {
+        document.getElementById("submitMsg").textContent =
+                "Wrong access code. Please try again.";
+        document.getElementById("submitMsg").style.color = "red";
+        input.classList.add("error");
+        input.classList.remove("okay");
+        document.querySelector('.submit-btn').disabled = false;
+    } else {
+        document.getElementById("submitMsg").textContent =
+                "Correct access code. Now loading...";
+        document.getElementById("submitMsg").style.color = "green";
+        input.classList.remove("error");
+        input.classList.add("okay");
+        loadRemoteSite();
+    }
+    submitMsg.classList.add("active");
+}
 
 async function decrypt(token, password) {
     try {
@@ -58,49 +103,4 @@ async function decrypt(token, password) {
         console.error("Decryption failed:", err);
         return null;
     }
-}
-
-// Function to get a URL parameter by name
-function getParameterByName(name) {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get(name);
-}
-
-document.addEventListener("DOMContentLoaded", async function() { // //window.onload = function() {
-    // Autofill input field if 'pass' parameter exists
-    const passValue = getParameterByName('pass');
-    if (passValue !== null) {
-        document.getElementById('userInput').value = passValue;
-    }
-
-    // Fetch target.json
-    const targetRes = await fetch('target.json');
-    targetJson = await targetRes.json();
-    console.log('targetJson loaded:', targetJson);
-});
-
-async function submitInput(event) {
-    // Do not reload page on submit.
-    event.preventDefault();
-
-    // Try decrypting the token.
-    token = await decrypt(targetJson.token, input.value);
-
-    document.querySelector('.submit-btn').disabled = true;
-
-    // Load the page if the token was decrypted (if the access code is correct).
-    if (token == null) {
-        document.getElementById("submitMsg").textContent = "Wrong access code. Please try again.";
-        document.getElementById("submitMsg").style.color = "red";
-        input.classList.add("error");
-        input.classList.remove("okay");
-        document.querySelector('.submit-btn').disabled = false;
-    } else {
-        document.getElementById("submitMsg").textContent = "Correct access code. Now loading...";
-        document.getElementById("submitMsg").style.color = "green";
-        input.classList.remove("error");
-        input.classList.add("okay");
-        loadRemoteSite();
-    }
-    submitMsg.classList.add("active");
 }
