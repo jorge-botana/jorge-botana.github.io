@@ -36,6 +36,7 @@ async function submitInput(event) {
     if (token == null) {
         document.getElementById("submitMsg").textContent =
                 "Wrong access code. Please try again.";
+        document.getElementById("userInput").value = "";
         document.getElementById("submitMsg").style.color = "red";
         input.classList.add("error");
         input.classList.remove("okay");
@@ -43,6 +44,7 @@ async function submitInput(event) {
     } else {
         document.getElementById("submitMsg").textContent =
                 "Correct access code. Now loading...";
+        document.getElementById("userInput").disabled = true;
         document.getElementById("submitMsg").style.color = "green";
         input.classList.remove("error");
         input.classList.add("okay");

@@ -1,16 +1,4 @@
 async function loadRemoteSite() {
-//    const params = new URLSearchParams(window.location.search);
-//    const passphrase = params.get('pass');
-
-        const passphrase = document.getElementById("userInput").value;
-        console.log("Entered password:", passphrase);
-
-    if (!passphrase) {
-        document.body.innerHTML =
-            '<p>Error: No passphrase provided in URL (use ?pass=1234)</p>';
-        return;
-    }
-
     try {
         const targetRes = await fetch('target.json');
         const targetJson = await targetRes.json();
@@ -169,6 +157,3 @@ async function processHtml(htmlText, context) {
 function githubRawAssetUrl(path, { username, repository, branch }) {
     return `https://raw.githubusercontent.com/${username}/${repository}/${branch}/${path}`;
 }
-
-// Start loading
-//loadRemoteSite();
