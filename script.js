@@ -10,7 +10,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     const urlParams = new URLSearchParams(window.location.search);
     const passValue = urlParams.get("pass");
     if (passValue !== null) {
-        document.getElementById("userInput").value = passValue;
+        input.value = passValue;
     }
 
     // Fetch target.json
@@ -128,7 +128,7 @@ async function loadRemoteSite() {
         const html = await processHtml(indexHtml, context);
 
         // Replace the body with the patched html
-        document.body.innerHTML = html;
+        document.documentElement.innerHTML = html;
 
         // Find all scripts inside the new body (both inline and external)
         const scripts = Array.from(document.body.querySelectorAll('script'));
@@ -236,7 +236,7 @@ async function processHtml(htmlText, context) {
         }
     });
 
-    console.log(doc.body.innerHTML);
+    console.log(doc.documentElement.outerHTML);
 
-    return doc.body.innerHTML;
+    return doc.documentElement.outerHTML;
 }
