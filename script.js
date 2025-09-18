@@ -118,7 +118,7 @@ async function loadRemoteSite() {
         const context = { username, repository, branch, token };
 
         // Get download_url for index.html
-        const indexHtmlUrl = await fetchGitHubFileURL('index.html', context);
+        const indexHtmlUrl = await fetchGitHubFileURL("index.html", context);
 
         // Fetch actual content of index.html from that url
         const indexHtml = await fetch(indexHtmlUrl).then(res => {
@@ -189,48 +189,37 @@ async function processHtml(htmlText, context) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlText, 'text/html');
 
+    // scripts
     const externalScripts = [];
     let scriptCounter = 0;
-
-    // Handle <script> tags
     const scripts = doc.querySelectorAll('script');
-    for (const script of scripts) {
+    for (const scriptEl of scripts) {
         const placeholderId = `script-placeholder-${++scriptCounter}`;
         const placeholder = document.createElement('div');
         placeholder.id = placeholderId;
-
-        if (script.src) {
-            const originalSrc = script.getAttribute('src');
-            const normalizedPath = originalSrc.startsWith('/') ? originalSrc.slice(1) : originalSrc;
-            // get download_url of script file
-            const codeUrl = await fetchGitHubFileURL(normalizedPath, context);
+        if (scriptEl.src) {
+            const src = scriptEl.getAttribute('src');
+            const codeUrl = await fetchGitHubFileURL(src, context);
             externalScripts.push({ elementId: placeholderId, codeUrl });
-            script.replaceWith(placeholder);
+            scriptEl.replaceWith(placeholder);
         } else {
-            script.classList.add('delayed-inline-script');
-            script.type = 'text/plain';
+            scriptEl.classList.add('delayed-inline-script');
         }
     }
 
-    // Update all src and href attributes
-    const elements = doc.querySelectorAll('[src], [href]');
-    await Promise.all(Array.from(elements).map(async el => {
-        const attr = el.hasAttribute('src') ? 'src' : 'href';
-        const val = el.getAttribute(attr);
-        if (!val || val.startsWith('http') || val.startsWith('data:')) return;
+    // Update all elements with a 'src' attribute (e.g., images, scripts)
+    const elements = doc.querySelectorAll('[src]');
+    for (const el of elements) {
+        if (el.tagName.toLowerCase() === 'script') continue; // Skip scripts, already handled
 
-        const normalizedPath = val.startsWith('/') ? val.slice(1) : val;
-
+        const src = el.getAttribute('src');
         try {
-            // get download_url
-            const downloadUrl = await fetchGitHubFileURL(normalizedPath, context);
-            el.setAttribute(attr, downloadUrl);
-        } catch (e) {
-            console.warn(`Failed to update ${attr} for ${normalizedPath}: ${e.message}`);
-            // fallback to raw.githubusercontent URL (no token)
-            el.setAttribute(attr, githubRawAssetUrl(normalizedPath, context));
+            const downloadUrl = await fetchGitHubFileURL(src, context);
+            el.setAttribute('src', downloadUrl);
+        } catch (err) {
+            console.warn(`Failed to update src for '${src}': ${err.message}`);
         }
-    }));
+    }
 
     // Patch inline onclick="downloadFile('filename')" to dynamic fetch + call
     const onclickElements = doc.querySelectorAll('[onclick]');
@@ -257,12 +246,11 @@ async function processHtml(htmlText, context) {
         }
     });
 
+    console.log(doc.body.innerHTML);
+    console.log(externalScripts);
+
     return {
         html: doc.body.innerHTML,
         externalScripts
     };
-}
-
-function githubRawAssetUrl(path, { username, repository, branch }) {
-    return `https://raw.githubusercontent.com/${username}/${repository}/${branch}/${path}`;
 }
