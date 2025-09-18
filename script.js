@@ -1,8 +1,116 @@
+const toggleBtn = document.getElementById("toggleBtn");
+const input = document.getElementById("userInput");
+const submitMsg = document.getElementById("submitMsg");
+
+let targetJson;
+let token;
+
+document.addEventListener("DOMContentLoaded", async function() {
+    // Inline getParameterByName functionality
+    const urlParams = new URLSearchParams(window.location.search);
+    const passValue = urlParams.get("pass");
+    if (passValue !== null) {
+        document.getElementById("userInput").value = passValue;
+    }
+
+    // Fetch target.json
+    const targetRes = await fetch("target.json");
+    targetJson = await targetRes.json();
+    console.log("targetJson loaded:", targetJson);
+});
+
+toggleBtn.addEventListener("click", function () {
+    input.type = input.type === "password" ? "text" : "password";
+    this.textContent = input.type === "password" ? "Show" : "Hide";
+});
+
+async function submitInput(event) {
+    // Do not reload page on submit.
+    event.preventDefault();
+
+    // Try decrypting the token.
+    token = await decrypt(targetJson.token, input.value);
+
+    // Load the page if the token was decrypted (if the access code is correct).
+    document.querySelector(".submit-btn").disabled = true;
+    if (token == null) {
+        document.getElementById("submitMsg").textContent =
+                "Wrong access code. Please try again.";
+        document.getElementById("userInput").value = "";
+        document.getElementById("submitMsg").style.color = "red";
+        input.classList.add("error");
+        input.classList.remove("okay");
+        document.querySelector(".submit-btn").disabled = false;
+    } else {
+        document.getElementById("submitMsg").textContent =
+                "Correct access code. Now loading...";
+        document.getElementById("userInput").disabled = true;
+        document.getElementById("submitMsg").style.color = "green";
+        input.classList.remove("error");
+        input.classList.add("okay");
+        loadRemoteSite();
+    }
+    submitMsg.classList.add("active");
+}
+
+async function decrypt(token, password) {
+    try {
+        const salt = Uint8Array.from(atob(token.salt),
+                c => c.charCodeAt(0));
+        const iv = Uint8Array.from(atob(token.iv),
+                c => c.charCodeAt(0));
+        const ciphertext = Uint8Array.from(atob(token.ciphertext),
+                c => c.charCodeAt(0));
+
+        const encoder = new TextEncoder();
+        const decoder = new TextDecoder();
+
+        const baseKey = await crypto.subtle.importKey(
+            "raw",
+            encoder.encode(password),
+            "PBKDF2",
+            false,
+            ["deriveKey"]
+        );
+
+        const key = await crypto.subtle.deriveKey(
+            {
+                name: "PBKDF2",
+                hash: "SHA-256",
+                salt: salt,
+                iterations: 100000
+            },
+            baseKey,
+            {
+                name: "AES-CBC",
+                length: 256
+            },
+            false,
+            ["decrypt"]
+        );
+
+        const plaintextBuffer = await crypto.subtle.decrypt(
+            {
+                name: "AES-CBC",
+                iv: iv
+            },
+            key,
+            ciphertext
+        );
+
+        const plaintext = decoder.decode(plaintextBuffer);
+
+        return plaintext;
+    } catch (err) {
+        console.error("Decryption failed:", err);
+        return null;
+    }
+}
+
+// -----------------------------------------------------------------------------
+
 async function loadRemoteSite() {
     try {
-        const targetRes = await fetch('target.json');
-        const targetJson = await targetRes.json();
-
         const username = targetJson.username;
         const repository = targetJson.repository;
         const branch = targetJson.branch;
@@ -10,7 +118,8 @@ async function loadRemoteSite() {
         const context = { username, repository, branch, token };
 
         // Get download_url for index.html
-        const indexHtmlUrl = await fetchGitHubFile('index.html', context);
+        const indexHtmlUrl = await fetchGitHubFileURL('index.html', context);
+
         // Fetch actual content of index.html from that url
         const indexHtml = await fetch(indexHtmlUrl).then(res => {
             if (!res.ok) throw new Error(`Failed to fetch index.html content: ${res.status}`);
@@ -50,16 +159,16 @@ async function loadRemoteSite() {
 }
 
 /**
- * fetchGitHubFile always returns download_url string for the file
+ *  always returns download_url string for the file
  */
-async function fetchGitHubFile(filePath, { username, repository, branch, token }) {
+async function fetchGitHubFileURL(filePath, { username, repository, branch, token }) {
     const apiUrl = `https://api.github.com/repos/${username}/${repository}/contents/${filePath}?ref=${branch}`;
 
     const metadataRes = await fetch(apiUrl, {
-        cache: 'no-store',
+        cache: "no-store",
         headers: {
             Authorization: `Bearer ${token}`,
-            Accept: 'application/vnd.github.v3+json'
+            Accept: "application/vnd.github.v3+json"
         }
     });
 
@@ -94,7 +203,7 @@ async function processHtml(htmlText, context) {
             const originalSrc = script.getAttribute('src');
             const normalizedPath = originalSrc.startsWith('/') ? originalSrc.slice(1) : originalSrc;
             // get download_url of script file
-            const codeUrl = await fetchGitHubFile(normalizedPath, context);
+            const codeUrl = await fetchGitHubFileURL(normalizedPath, context);
             externalScripts.push({ elementId: placeholderId, codeUrl });
             script.replaceWith(placeholder);
         } else {
@@ -114,7 +223,7 @@ async function processHtml(htmlText, context) {
 
         try {
             // get download_url
-            const downloadUrl = await fetchGitHubFile(normalizedPath, context);
+            const downloadUrl = await fetchGitHubFileURL(normalizedPath, context);
             el.setAttribute(attr, downloadUrl);
         } catch (e) {
             console.warn(`Failed to update ${attr} for ${normalizedPath}: ${e.message}`);
@@ -137,7 +246,7 @@ async function processHtml(htmlText, context) {
             el.setAttribute('onclick', `
                 (async () => {
                     try {
-                        const url = await fetchGitHubFile('${filename}', ${JSON.stringify(context)});
+                        const url = await fetchGitHubFileURL('${filename}', ${JSON.stringify(context)});
                         downloadFile(url);
                     } catch (err) {
                         alert('Download failed: ' + err.message);
