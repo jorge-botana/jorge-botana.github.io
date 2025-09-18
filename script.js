@@ -124,23 +124,23 @@ async function loadRemoteSite() {
             return res.text();
         });
 
+        await injectRemoteFavicon(context);
+
         // Patch the HTML: fix script src, images, onclicks, etc.
         const html = await processHtml(indexHtml, context);
-
-        await injectRemoteFavicon(context);
 
         // Replace the body with the patched html
         document.documentElement.innerHTML = html;
 
         // Find all scripts inside the new body (both inline and external)
-        const scripts = Array.from(document.body.querySelectorAll('script'));
+        const scripts = Array.from(document.body.querySelectorAll("script"));
 
         for (const oldScript of scripts) {
-            const newScript = document.createElement('script');
+            const newScript = document.createElement("script");
 
             // copy non-src attributes (like type)
             for (const attr of oldScript.attributes) {
-                if (attr.name !== 'src') {
+                if (attr.name !== "src") {
                     newScript.setAttribute(attr.name, attr.value);
                 }
             }
@@ -153,7 +153,7 @@ async function loadRemoteSite() {
                     const scriptText = await response.text();
                     newScript.textContent = scriptText;
                 } catch (e) {
-                    console.error('Error loading script:', e);
+                    console.error("Error loading script:", e);
                     continue; // skip this script
                 }
             } else {
@@ -164,7 +164,7 @@ async function loadRemoteSite() {
         }
     } catch (err) {
         document.body.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
-        console.error('Load error:', err);
+        console.error("Load error:", err);
     }
 }
 
@@ -197,7 +197,7 @@ async function fetchGitHubFileURL(filePath, { username, repository, branch, toke
 
 async function processHtml(htmlText, context) {
     const parser = new DOMParser();
-    const doc = parser.parseFromString(htmlText, 'text/html');
+    const doc = parser.parseFromString(htmlText, "text/html");
 
     // Patch 'href' attributes (e.g., link[href], a[href], etc.)
     await patchAttributeCSS(doc, context);
@@ -214,43 +214,43 @@ async function processHtml(htmlText, context) {
 }
 
 async function patchAttributeCSS(doc, context) {
-    const elements = [...doc.querySelectorAll('[href]')];
+    const elements = [...doc.querySelectorAll("[href]")];
 
     for (const el of elements) {
-        const hrefValue = el.getAttribute('href');
+        const hrefValue = el.getAttribute("href");
 
         try {
             const updatedUrl = await fetchGitHubFileURL(hrefValue, context);
             // Fetch CSS content and replace <link> with <style>
             const cssText = await fetch(updatedUrl).then(r => r.text());
-            const styleEl = doc.createElement('style');
+            const styleEl = doc.createElement("style");
             styleEl.textContent = cssText;
             el.replaceWith(styleEl);
         } catch (err) {
-            console.warn(`Failed to update ${el.tagName.toLowerCase()} href '${hrefValue}': ${err.message}`);
+            console.warn(`Failed to update ${el.tagName.toLowerCase()} href "${hrefValue}": ${err.message}`);
         }
     }
 }
 
 async function patchAttributeLinks(doc, context) {
-    const elements = [...doc.querySelectorAll('[src]')];
+    const elements = [...doc.querySelectorAll("[src]")];
 
     for (const el of elements) {
-        const srcValue = el.getAttribute('src');
+        const srcValue = el.getAttribute("src");
 
         try {
             const updatedUrl = await fetchGitHubFileURL(srcValue, context);
-            el.setAttribute('src', updatedUrl);
+            el.setAttribute("src", updatedUrl);
         } catch (err) {
-            console.warn(`Failed to update ${el.tagName.toLowerCase()} src '${srcValue}': ${err.message}`);
+            console.warn(`Failed to update ${el.tagName.toLowerCase()} src "${srcValue}": ${err.message}`);
         }
     }
 }
 
 function patchOnclickDownloadFile(doc, context) {
-    const onclickElements = doc.querySelectorAll('[onclick]');
+    const onclickElements = doc.querySelectorAll("[onclick]");
     onclickElements.forEach(el => {
-        const onclick = el.getAttribute('onclick');
+        const onclick = el.getAttribute("onclick");
         if (!onclick) return;
 
         // Match downloadFile('somefile.ext') call, extract filename inside quotes
@@ -259,13 +259,13 @@ function patchOnclickDownloadFile(doc, context) {
             const filename = match[1];
 
             // Replace onclick content with async IIFE to fetch dynamic URL
-            el.setAttribute('onclick', `
+            el.setAttribute("onclick", `
                 (async () => {
                     try {
-                        const url = await fetchGitHubFileURL('${filename}', ${JSON.stringify(context)});
+                        const url = await fetchGitHubFileURL("${filename}", ${JSON.stringify(context)});
                         downloadFile(url);
                     } catch (err) {
-                        alert('Download failed: ' + err.message);
+                        alert("Download failed: " + err.message);
                     }
                 })();
                 return false;
@@ -276,19 +276,18 @@ function patchOnclickDownloadFile(doc, context) {
 
 async function injectRemoteFavicon(context) {
     try {
-        const faviconUrl = await fetchGitHubFileURL('favicon.ico', context);
+        const faviconUrl = await fetchGitHubFileURL("favicon.ico", context);
 
-        const link = document.createElement('link');
-        link.rel = 'icon';
-        link.type = 'image/x-icon';
+        const link = document.createElement("link");
+        link.rel = "icon";
+        link.type = "image/x-icon";
         link.href = faviconUrl;
 
         // Remove existing favicons (optional)
-        document.querySelectorAll('link[rel~="icon"]').forEach(el => el.remove());
+        document.querySelectorAll("link[rel~='icon']").forEach(el => el.remove());
 
         document.head.appendChild(link);
-        console.log('Remote favicon injected:', faviconUrl);
     } catch (err) {
-        console.warn('Failed to inject remote favicon:', err.message);
+        console.warn("Failed to inject remote favicon:", err.message);
     }
 }
