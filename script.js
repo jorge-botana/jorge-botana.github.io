@@ -207,11 +207,9 @@ async function processHtml(htmlText, context) {
         }
     }
 
-    // Update all elements with a 'src' attribute (e.g., images, scripts)
-    const elements = doc.querySelectorAll('[src]');
+    // Images
+    const elements = doc.querySelectorAll('img');
     for (const el of elements) {
-        if (el.tagName.toLowerCase() === 'script') continue; // Skip scripts, already handled
-
         const src = el.getAttribute('src');
         try {
             const downloadUrl = await fetchGitHubFileURL(src, context);
