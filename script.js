@@ -111,47 +111,55 @@ async function decrypt(token, password) {
 
 async function loadRemoteSite() {
     try {
-        const username = targetJson.username;
-        const repository = targetJson.repository;
-        const branch = targetJson.branch;
+        const { username, repository, branch } = targetJson;
 
         const context = { username, repository, branch, token };
 
         // Get download_url for index.html
         const indexHtmlUrl = await fetchGitHubFileURL("index.html", context);
 
-        // Fetch actual content of index.html from that url
+        // Fetch the index.html content
         const indexHtml = await fetch(indexHtmlUrl).then(res => {
             if (!res.ok) throw new Error(`Failed to fetch index.html content: ${res.status}`);
             return res.text();
         });
 
-        const { html, externalScripts } = await processHtml(indexHtml, context);
+        // Patch the HTML: fix script src, images, onclicks, etc.
+        const html = await processHtml(indexHtml, context);
 
+        // Replace the body with the patched html
         document.body.innerHTML = html;
 
-        // Re-inject external scripts at original positions
-        for (const { elementId, codeUrl } of externalScripts) {
-            const placeholder = document.getElementById(elementId);
-            if (placeholder) {
-                // Fetch script content using download_url
-                const code = await fetch(codeUrl).then(res => {
-                    if (!res.ok) throw new Error(`Failed to fetch script content: ${res.status}`);
-                    return res.text();
-                });
-                const script = document.createElement('script');
-                script.textContent = code;
-                placeholder.replaceWith(script);
+        // Find all scripts inside the new body (both inline and external)
+        const scripts = Array.from(document.body.querySelectorAll('script'));
+
+        for (const oldScript of scripts) {
+            const newScript = document.createElement('script');
+
+            // copy non-src attributes (like type)
+            for (const attr of oldScript.attributes) {
+                if (attr.name !== 'src') {
+                    newScript.setAttribute(attr.name, attr.value);
+                }
             }
+
+            if (oldScript.src) {
+                // Fetch script content manually, then inject as inline script
+                try {
+                    const response = await fetch(oldScript.src);
+                    if (!response.ok) throw new Error(`Failed to fetch script: ${response.status}`);
+                    const scriptText = await response.text();
+                    newScript.textContent = scriptText;
+                } catch (e) {
+                    console.error('Error loading script:', e);
+                    continue; // skip this script
+                }
+            } else {
+                newScript.textContent = oldScript.textContent;
+            }
+
+            oldScript.replaceWith(newScript);
         }
-
-        // Re-inject inline scripts
-        document.querySelectorAll('.delayed-inline-script').forEach(el => {
-            const script = document.createElement('script');
-            script.textContent = el.textContent;
-            el.replaceWith(script);
-        });
-
     } catch (err) {
         document.body.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
         console.error('Load error:', err);
@@ -189,33 +197,17 @@ async function processHtml(htmlText, context) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlText, 'text/html');
 
-    // scripts
-    const externalScripts = [];
-    let scriptCounter = 0;
-    const scripts = doc.querySelectorAll('script');
-    for (const scriptEl of scripts) {
-        const placeholderId = `script-placeholder-${++scriptCounter}`;
-        const placeholder = document.createElement('div');
-        placeholder.id = placeholderId;
-        if (scriptEl.src) {
-            const src = scriptEl.getAttribute('src');
-            const codeUrl = await fetchGitHubFileURL(src, context);
-            externalScripts.push({ elementId: placeholderId, codeUrl });
-            scriptEl.replaceWith(placeholder);
-        } else {
-            scriptEl.classList.add('delayed-inline-script');
-        }
-    }
+    // Patch src
+    const elementsToPatch = [...doc.querySelectorAll('script[src]'), ...doc.querySelectorAll('img')];
 
-    // Images
-    const elements = doc.querySelectorAll('img');
-    for (const el of elements) {
+    for (const el of elementsToPatch) {
         const src = el.getAttribute('src');
         try {
-            const downloadUrl = await fetchGitHubFileURL(src, context);
-            el.setAttribute('src', downloadUrl);
+            const updatedSrc = await fetchGitHubFileURL(src, context);
+            el.setAttribute('src', updatedSrc);
         } catch (err) {
-            console.warn(`Failed to update src for '${src}': ${err.message}`);
+            const tag = el.tagName.toLowerCase();
+            console.warn(`Failed to update ${tag} src '${src}': ${err.message}`);
         }
     }
 
@@ -245,10 +237,6 @@ async function processHtml(htmlText, context) {
     });
 
     console.log(doc.body.innerHTML);
-    console.log(externalScripts);
 
-    return {
-        html: doc.body.innerHTML,
-        externalScripts
-    };
+    return doc.body.innerHTML;
 }
