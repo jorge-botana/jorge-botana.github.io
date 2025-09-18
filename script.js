@@ -124,6 +124,7 @@ async function loadRemoteSite() {
             return res.text();
         });
 
+        // Take the favicon from remote
         await injectRemoteFavicon(context);
 
         // Patch the HTML: fix script src, images, onclicks, etc.
@@ -132,36 +133,8 @@ async function loadRemoteSite() {
         // Replace the body with the patched html
         document.documentElement.innerHTML = html;
 
-        // Find all scripts inside the new body (both inline and external)
-        const scripts = Array.from(document.body.querySelectorAll("script"));
-
-        for (const oldScript of scripts) {
-            const newScript = document.createElement("script");
-
-            // copy non-src attributes (like type)
-            for (const attr of oldScript.attributes) {
-                if (attr.name !== "src") {
-                    newScript.setAttribute(attr.name, attr.value);
-                }
-            }
-
-            if (oldScript.src) {
-                // Fetch script content manually, then inject as inline script
-                try {
-                    const response = await fetch(oldScript.src);
-                    if (!response.ok) throw new Error(`Failed to fetch script: ${response.status}`);
-                    const scriptText = await response.text();
-                    newScript.textContent = scriptText;
-                } catch (e) {
-                    console.error("Error loading script:", e);
-                    continue; // skip this script
-                }
-            } else {
-                newScript.textContent = oldScript.textContent;
-            }
-
-            oldScript.replaceWith(newScript);
-        }
+        // Inject remote scripts.
+        await injectRemoteScripts();
     } catch (err) {
         document.body.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
         console.error("Load error:", err);
@@ -289,5 +262,34 @@ async function injectRemoteFavicon(context) {
         document.head.appendChild(link);
     } catch (err) {
         console.warn("Failed to inject remote favicon:", err.message);
+    }
+}
+
+async function injectRemoteScripts() {
+    // Find all scripts inside the body (both inline and external)
+    const scripts = Array.from(document.body.querySelectorAll("script"));
+
+    for (const oldScript of scripts) {
+        const newScript = document.createElement("script");
+
+        if (oldScript.src) {
+            // Fetch script content manually, then inject as inline script
+            try {
+                const response = await fetch(oldScript.src);
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch script: ${response.status}`);
+                }
+                const scriptText = await response.text();
+                newScript.textContent = scriptText;
+            } catch (e) {
+                console.error("Error loading script:", e);
+                continue; // Skip this script
+            }
+        } else {
+            // Inline script: copy its content directly
+            newScript.textContent = oldScript.textContent;
+        }
+
+        oldScript.replaceWith(newScript);
     }
 }
