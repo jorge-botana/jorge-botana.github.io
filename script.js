@@ -197,13 +197,55 @@ async function processHtml(htmlText, context) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlText, 'text/html');
 
-    // Patch 'src' attributes (e.g., script[src], img[src], iframe[src], etc.)
-    await patchAttribute(doc, context, 'src');
-
     // Patch 'href' attributes (e.g., link[href], a[href], etc.)
-    await patchAttribute(doc, context, 'href');
+    await patchAttributeCSS(doc, context);
+
+    // Patch 'src' attributes (e.g., script[src], img[src], iframe[src], etc.)
+    await patchAttributeLinks(doc, context);
 
     // Patch inline onclick="downloadFile('filename')" to dynamic fetch + call
+    patchOnclickDownloadFile(doc, context);
+
+    console.log(doc.documentElement.outerHTML);
+
+    return doc.documentElement.outerHTML;
+}
+
+async function patchAttributeCSS(doc, context) {
+    const elements = [...doc.querySelectorAll('[href]')];
+
+    for (const el of elements) {
+        const hrefValue = el.getAttribute('href');
+
+        try {
+            const updatedUrl = await fetchGitHubFileURL(hrefValue, context);
+            // Fetch CSS content and replace <link> with <style>
+            const cssText = await fetch(updatedUrl).then(r => r.text());
+            const styleEl = doc.createElement('style');
+            styleEl.textContent = cssText;
+            el.replaceWith(styleEl);
+        } catch (err) {
+            console.warn(`Failed to update ${el.tagName.toLowerCase()} href '${hrefValue}': ${err.message}`);
+        }
+    }
+}
+
+async function patchAttributeLinks(doc, context) {
+    const elements = [...doc.querySelectorAll('[src]')];
+
+    for (const el of elements) {
+        const srcValue = el.getAttribute('src');
+
+        try {
+            const updatedUrl = await fetchGitHubFileURL(srcValue, context);
+            el.setAttribute('src', updatedUrl);
+        } catch (err) {
+            console.warn(`Failed to update ${el.tagName.toLowerCase()} src '${srcValue}': ${err.message}`);
+        }
+    }
+}
+
+function patchOnclickDownloadFile(doc, context) {
     const onclickElements = doc.querySelectorAll('[onclick]');
     onclickElements.forEach(el => {
         const onclick = el.getAttribute('onclick');
@@ -213,6 +255,7 @@ async function processHtml(htmlText, context) {
         const match = onclick.match(/downloadFile\(['"](.+?)['"]\)/);
         if (match) {
             const filename = match[1];
+
             // Replace onclick content with async IIFE to fetch dynamic URL
             el.setAttribute('onclick', `
                 (async () => {
@@ -227,44 +270,4 @@ async function processHtml(htmlText, context) {
             `);
         }
     });
-
-    console.log(doc.documentElement.outerHTML);
-
-    return doc.documentElement.outerHTML;
-}
-
-async function patchAttribute(doc, context, attrName) {
-    const elements = [...doc.querySelectorAll(`[${attrName}]`)];
-
-    for (const el of elements) {
-        const attrValue = el.getAttribute(attrName);
-
-        // Optionally skip full URLs or anchors
-        // if (/^(https?:)?\/\//i.test(attrValue) || attrValue.startsWith('#')) continue;
-
-        try {
-            const updatedUrl = await fetchGitHubFileURL(attrValue, context);
-
-            // Special case for <link rel="stylesheet" href="...">
-            if (
-                el.tagName.toLowerCase() === 'link' &&
-                el.getAttribute('rel') === 'stylesheet' &&
-                attrName === 'href'
-            ) {
-                const cssText = await fetch(updatedUrl).then(r => r.text());
-
-                const styleEl = doc.createElement('style');
-                styleEl.textContent = cssText;
-
-                el.replaceWith(styleEl); // Replace <link> with <style>
-                continue;
-            }
-
-            // Regular patching for src/href
-            el.setAttribute(attrName, updatedUrl);
-
-        } catch (err) {
-            console.warn(`Failed to update ${el.tagName.toLowerCase()} ${attrName} '${attrValue}': ${err.message}`);
-        }
-    }
 }
