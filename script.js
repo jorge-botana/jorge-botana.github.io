@@ -197,19 +197,11 @@ async function processHtml(htmlText, context) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlText, 'text/html');
 
-    // Patch src
-    const elementsToPatch = [...doc.querySelectorAll('script[src]'), ...doc.querySelectorAll('img')];
+    // Patch 'src' attributes (e.g., script[src], img[src], iframe[src], etc.)
+    await patchAttribute(doc, context, 'src');
 
-    for (const el of elementsToPatch) {
-        const src = el.getAttribute('src');
-        try {
-            const updatedSrc = await fetchGitHubFileURL(src, context);
-            el.setAttribute('src', updatedSrc);
-        } catch (err) {
-            const tag = el.tagName.toLowerCase();
-            console.warn(`Failed to update ${tag} src '${src}': ${err.message}`);
-        }
-    }
+    // Patch 'href' attributes (e.g., link[href], a[href], etc.)
+    await patchAttribute(doc, context, 'href');
 
     // Patch inline onclick="downloadFile('filename')" to dynamic fetch + call
     const onclickElements = doc.querySelectorAll('[onclick]');
@@ -239,4 +231,40 @@ async function processHtml(htmlText, context) {
     console.log(doc.documentElement.outerHTML);
 
     return doc.documentElement.outerHTML;
+}
+
+async function patchAttribute(doc, context, attrName) {
+    const elements = [...doc.querySelectorAll(`[${attrName}]`)];
+
+    for (const el of elements) {
+        const attrValue = el.getAttribute(attrName);
+
+        // Optionally skip full URLs or anchors
+        // if (/^(https?:)?\/\//i.test(attrValue) || attrValue.startsWith('#')) continue;
+
+        try {
+            const updatedUrl = await fetchGitHubFileURL(attrValue, context);
+
+            // Special case for <link rel="stylesheet" href="...">
+            if (
+                el.tagName.toLowerCase() === 'link' &&
+                el.getAttribute('rel') === 'stylesheet' &&
+                attrName === 'href'
+            ) {
+                const cssText = await fetch(updatedUrl).then(r => r.text());
+
+                const styleEl = doc.createElement('style');
+                styleEl.textContent = cssText;
+
+                el.replaceWith(styleEl); // Replace <link> with <style>
+                continue;
+            }
+
+            // Regular patching for src/href
+            el.setAttribute(attrName, updatedUrl);
+
+        } catch (err) {
+            console.warn(`Failed to update ${el.tagName.toLowerCase()} ${attrName} '${attrValue}': ${err.message}`);
+        }
+    }
 }
