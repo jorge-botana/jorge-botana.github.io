@@ -127,6 +127,8 @@ async function loadRemoteSite() {
         // Patch the HTML: fix script src, images, onclicks, etc.
         const html = await processHtml(indexHtml, context);
 
+        await injectRemoteFavicon(context);
+
         // Replace the body with the patched html
         document.documentElement.innerHTML = html;
 
@@ -270,4 +272,23 @@ function patchOnclickDownloadFile(doc, context) {
             `);
         }
     });
+}
+
+async function injectRemoteFavicon(context) {
+    try {
+        const faviconUrl = await fetchGitHubFileURL('favicon.ico', context);
+
+        const link = document.createElement('link');
+        link.rel = 'icon';
+        link.type = 'image/x-icon';
+        link.href = faviconUrl;
+
+        // Remove existing favicons (optional)
+        document.querySelectorAll('link[rel~="icon"]').forEach(el => el.remove());
+
+        document.head.appendChild(link);
+        console.log('Remote favicon injected:', faviconUrl);
+    } catch (err) {
+        console.warn('Failed to inject remote favicon:', err.message);
+    }
 }
