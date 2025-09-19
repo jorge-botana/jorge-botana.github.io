@@ -32,7 +32,7 @@ async function submitInput(event) {
     token = await decrypt(targetJson.token, input.value);
 
     // Load the page if the token was decrypted (if the access code is correct).
-    document.querySelector(".submit-btn").disabled = true;
+    document.querySelector(".submitBtn").disabled = true;
     if (token == null) {
         document.getElementById("submitMsg").textContent =
                 "Wrong access code. Please try again.";
@@ -40,7 +40,7 @@ async function submitInput(event) {
         document.getElementById("submitMsg").style.color = "red";
         input.classList.add("error");
         input.classList.remove("okay");
-        document.querySelector(".submit-btn").disabled = false;
+        document.querySelector(".submitBtn").disabled = false;
     } else {
         document.getElementById("submitMsg").textContent =
                 "Correct access code. Now loading...";
