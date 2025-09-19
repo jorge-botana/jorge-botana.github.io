@@ -16,7 +16,7 @@ document.addEventListener("DOMContentLoaded", async function() {
     // Fetch target.json
     const targetRes = await fetch("target.json");
     targetJson = await targetRes.json();
-    console.log("targetJson loaded:", targetJson);
+//    console.log("targetJson loaded:", targetJson);
 });
 
 toggleBtn.addEventListener("click", function () {
@@ -120,7 +120,8 @@ async function loadRemoteSite() {
 
         // Fetch the index.html content
         const indexHtml = await fetch(indexHtmlUrl).then(res => {
-            if (!res.ok) throw new Error(`Failed to fetch index.html content: ${res.status}`);
+            if (!res.ok) throw new
+                    Error(`Failed to fetch index.html content: ${res.status}`);
             return res.text();
         });
 
@@ -136,7 +137,8 @@ async function loadRemoteSite() {
         // Inject remote scripts.
         await injectRemoteScripts();
     } catch (err) {
-        document.body.innerHTML = `<p style="color:red;">Error: ${err.message}</p>`;
+        document.body.innerHTML =
+                `<p style="color:red;">Error: ${err.message}</p>`;
         console.error("Load error:", err);
     }
 }
@@ -144,8 +146,10 @@ async function loadRemoteSite() {
 /**
  *  always returns download_url string for the file
  */
-async function fetchGitHubFileURL(filePath, { username, repository, branch, token }) {
-    const apiUrl = `https://api.github.com/repos/${username}/${repository}/contents/${filePath}?ref=${branch}`;
+async function fetchGitHubFileURL(filePath, { username, repository, branch,
+        token }) {
+    const apiUrl = `https://api.github.com/repos/${username}/${repository}/` +
+            `contents/${filePath}?ref=${branch}`;
 
     const metadataRes = await fetch(apiUrl, {
         cache: "no-store",
@@ -156,7 +160,8 @@ async function fetchGitHubFileURL(filePath, { username, repository, branch, toke
     });
 
     if (!metadataRes.ok) {
-        throw new Error(`Failed to fetch metadata for ${filePath}: ${metadataRes.status}`);
+        throw new Error(`Failed to fetch metadata for ${filePath}:
+                ${metadataRes.status}`);
     }
 
     const metadata = await metadataRes.json();
@@ -181,7 +186,7 @@ async function processHtml(htmlText, context) {
     // Patch inline onclick="downloadFile('filename')" to dynamic fetch + call
     patchOnclickDownloadFile(doc, context);
 
-    console.log(doc.documentElement.outerHTML);
+//    console.log(doc.documentElement.outerHTML);
 
     return doc.documentElement.outerHTML;
 }
@@ -200,7 +205,8 @@ async function patchAttributeCSS(doc, context) {
             styleEl.textContent = cssText;
             el.replaceWith(styleEl);
         } catch (err) {
-            console.warn(`Failed to update ${el.tagName.toLowerCase()} href "${hrefValue}": ${err.message}`);
+            console.warn(`Failed to update ${el.tagName.toLowerCase()} href
+                    "${hrefValue}": ${err.message}`);
         }
     }
 }
@@ -215,7 +221,8 @@ async function patchAttributeLinks(doc, context) {
             const updatedUrl = await fetchGitHubFileURL(srcValue, context);
             el.setAttribute("src", updatedUrl);
         } catch (err) {
-            console.warn(`Failed to update ${el.tagName.toLowerCase()} src "${srcValue}": ${err.message}`);
+            console.warn(`Failed to update ${el.tagName.toLowerCase()} src
+                    "${srcValue}": ${err.message}`);
         }
     }
 }
@@ -226,7 +233,7 @@ function patchOnclickDownloadFile(doc, context) {
         const onclick = el.getAttribute("onclick");
         if (!onclick) return;
 
-        // Match downloadFile('somefile.ext') call, extract filename inside quotes
+        // Match downloadFile('somefile.ext') call, extract filename inside ""
         const match = onclick.match(/downloadFile\(['"](.+?)['"]\)/);
         if (match) {
             const filename = match[1];
@@ -235,7 +242,8 @@ function patchOnclickDownloadFile(doc, context) {
             el.setAttribute("onclick", `
                 (async () => {
                     try {
-                        const url = await fetchGitHubFileURL("${filename}", ${JSON.stringify(context)});
+                        const url = await fetchGitHubFileURL("${filename}",
+                                ${JSON.stringify(context)});
                         downloadFile(url);
                     } catch (err) {
                         alert("Download failed: " + err.message);
@@ -257,7 +265,8 @@ async function injectRemoteFavicon(context) {
         link.href = faviconUrl;
 
         // Remove existing favicons (optional)
-        document.querySelectorAll("link[rel~='icon']").forEach(el => el.remove());
+        document.querySelectorAll("link[rel~='icon']").forEach(el =>
+                el.remove());
 
         document.head.appendChild(link);
     } catch (err) {
@@ -277,7 +286,8 @@ async function injectRemoteScripts() {
             try {
                 const response = await fetch(oldScript.src);
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch script: ${response.status}`);
+                    throw new Error(`Failed to fetch script:
+                            ${response.status}`);
                 }
                 const scriptText = await response.text();
                 newScript.textContent = scriptText;
