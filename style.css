@@ -30,19 +30,16 @@ body {
 
 .inputBox {
     position: relative;
-    width: 100%;
     margin-bottom: 20px;
 }
 
 .inputBox input {
     width: 100%;
-    padding: 14px 40px 14px 10px; /* espacio extra para el botón */
+    padding: 14px 40px 14px 10px;
     font-size: 16px;
     border: 1px solid #aaa;
     border-radius: 4px;
     outline: none;
-    background: transparent;
-    transition: border-color 0.3s;
 }
 
 .inputBox input.error {
@@ -61,14 +58,12 @@ body {
     padding: 0 5px;
     color: #888;
     transition: 0.2s ease all;
-    pointer-events: none;
 }
 
 .inputBox input:focus + label,
 .inputBox input:not(:placeholder-shown) + label {
-    top: -0px;
+    top: 0px;
     font-size: 12px;
-    color: #333;
 }
 
 .inputBox input.error:focus + label,
@@ -90,13 +85,8 @@ body {
     color: #007BFF;
     font-size: 14px;
     cursor: pointer;
+    font-family: Courier;
     padding: 0;
-    user-select: none; /* evita selección accidental */
-    font-family: Courier, monospace;
-}
-
-.toggle-btn:focus {
-    outline: none;
 }
 
 .submit-btn {
@@ -117,7 +107,6 @@ body {
     cursor: not-allowed;
 }
 
-
 .submit-btn:hover {
     background-color: #0056b3;
 }
@@ -125,7 +114,6 @@ body {
 .submit-msg {
     font-size: 14px;
     height: 18px;
-    visibility: hidden;
     margin-top: -15px;
     margin-bottom: 15px;
 }
