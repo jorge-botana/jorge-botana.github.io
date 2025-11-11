@@ -183,6 +183,8 @@ async function processHtml(htmlText, context) {
     // Patch 'src' attributes (e.g., script[src], img[src], iframe[src], etc.)
     await patchAttributeLinks(doc, context);
 
+    await patchMetaContent(doc, context); // <-- new line
+
     // Patch inline onclick="downloadFile('filename')" to dynamic fetch + call
     patchOnclickDownloadFile(doc, context);
 
@@ -203,6 +205,7 @@ async function patchAttributeCSS(doc, context) {
             const cssText = await fetch(updatedUrl).then(r => r.text());
             const styleEl = doc.createElement("style");
             styleEl.textContent = cssText;
+            styleEl.setAttribute("data-href", hrefValue); // <-- add this PARA marcar lines a quitar del CSS
             el.replaceWith(styleEl);
         } catch (err) {
             console.warn(`Failed to update ${el.tagName.toLowerCase()} href
@@ -255,28 +258,39 @@ function patchOnclickDownloadFile(doc, context) {
     });
 }
 
-async function injectRemoteFavicon(context) {
+async function injectRemoteFavicon(htmlText, context) {
     try {
-        const faviconUrl = await fetchGitHubFileURL("favicon.ico", context);
+        // Parse HTML string into a Document
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlText, "text/html");
 
-        const link = document.createElement("link");
-        link.rel = "icon";
-        link.type = "image/x-icon";
-        link.href = faviconUrl;
+        // Look for <link rel="icon"> or <link rel="shortcut icon">
+        const linkEl = doc.querySelector("link[rel~='icon']");
+        if (!linkEl) return;
 
-        // Remove existing favicons (optional)
-        document.querySelectorAll("link[rel~='icon']").forEach(el =>
-                el.remove());
+        const faviconPath = linkEl.getAttribute("href");
+        if (!faviconPath) return;
 
-        document.head.appendChild(link);
+        // Get GitHub download_url
+        const faviconUrl = await fetchGitHubFileURL(faviconPath, context);
+
+        const newLink = document.createElement("link");
+        newLink.rel = "icon";
+        newLink.type = "image/x-icon";
+        newLink.href = faviconUrl;
+
+        // Remove existing favicons
+        document.querySelectorAll("link[rel~='icon']").forEach(el => el.remove());
+
+        document.head.appendChild(newLink);
     } catch (err) {
         console.warn("Failed to inject remote favicon:", err.message);
     }
 }
 
 async function injectRemoteScripts() {
-    // Find all scripts inside the body (both inline and external)
-    const scripts = Array.from(document.body.querySelectorAll("script"));
+    // Find all scripts inside the document (both inline and external)
+    const scripts = Array.from(document.documentElement.querySelectorAll("script"));
 
     for (const oldScript of scripts) {
         const newScript = document.createElement("script");
@@ -291,6 +305,9 @@ async function injectRemoteScripts() {
                 }
                 const scriptText = await response.text();
                 newScript.textContent = scriptText;
+
+                // Preserve original src for mainLoop removal
+                newScript.setAttribute("data-src", oldScript.src);
             } catch (e) {
                 console.error("Error loading script:", e);
                 continue; // Skip this script
@@ -301,5 +318,28 @@ async function injectRemoteScripts() {
         }
 
         oldScript.replaceWith(newScript);
+    }
+}
+
+async function patchMetaContent(doc, context) {
+    const metaElements = [...doc.querySelectorAll("meta[content]")];
+
+    for (const el of metaElements) {
+        const nameAttr = el.getAttribute("name");
+        const contentValue = el.getAttribute("content");
+
+        // Skip if no content, starts with http, or is a meta we don't want to patch
+        if (
+            !contentValue ||
+            contentValue.startsWith("http") ||
+            nameAttr === "viewport"
+        ) continue;
+
+        try {
+            const updatedUrl = await fetchGitHubFileURL(contentValue, context);
+            el.setAttribute("content", updatedUrl);
+        } catch (err) {
+            console.warn(`Failed to update meta content "${contentValue}": ${err.message}`);
+        }
     }
 }
