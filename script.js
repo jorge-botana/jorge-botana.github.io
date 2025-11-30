@@ -15,7 +15,13 @@ document.addEventListener("DOMContentLoaded", async function() {
 
     // Fetch target.json
     const targetRes = await fetch("target.json");
-    targetJson = await targetRes.json();
+
+    let text = await targetRes.text();
+
+    // Apply magic regex to strip // and /* */ C-like comments.
+    text = text.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, "");
+
+    targetJson =  JSON.parse(text);
 //    console.log("targetJson loaded:", targetJson);
 });
 
