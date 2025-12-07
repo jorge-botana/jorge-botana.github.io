@@ -5,31 +5,36 @@ const submitMsg = document.getElementById("submitMsg");
 let targetJson;
 let token;
 
-document.addEventListener("DOMContentLoaded", async function() {
-    // Inline getParameterByName functionality
-    const urlParams = new URLSearchParams(window.location.search);
-    const passValue = urlParams.get("pass");
+// Executed when page is loaded
+async function main() {
+    // Autocomplete the password if passed through URL
+    const passValue = new URL(location).searchParams.get("pass");
     if (passValue !== null) {
         input.value = passValue;
     }
 
     // Fetch target.json
-    const targetRes = await fetch("target.json");
-
-    let text = await targetRes.text();
+    const targetJsonPath = getAssetPath("target");
+    const res = await fetch(targetJsonPath);
+    let text = await res.text();
 
     // Apply magic regex to strip // and /* */ C-like comments.
     text = text.replace(/\/\/.*|\/\*[\s\S]*?\*\//g, "");
 
-    targetJson =  JSON.parse(text);
+    targetJson = JSON.parse(text);
 //    console.log("targetJson loaded:", targetJson);
-});
+}
 
+// Executed when toggled Hide/Show
 toggleBtn.addEventListener("click", function () {
+    // Switch the input field type between password and text
     input.type = input.type === "password" ? "text" : "password";
+
+    // Update the button label accordingly
     this.textContent = input.type === "password" ? "Show" : "Hide";
 });
 
+// Executed when Submit is clicked
 async function submitInput(event) {
     // Do not reload page on submit.
     event.preventDefault();
@@ -349,3 +354,11 @@ async function patchMetaContent(doc, context) {
         }
     }
 }
+
+// Helper to retrieve asset path from <meta> tags
+function getAssetPath(name) {
+    return document.querySelector(`meta[name="${name}"]`)?.content || "";
+}
+
+// Start the app
+main();
