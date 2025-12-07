@@ -3,7 +3,6 @@ const input = document.getElementById("userInput");
 const submitMsg = document.getElementById("submitMsg");
 
 let targetJson;
-let token;
 
 // Executed when page is loaded
 async function main() {
@@ -40,11 +39,11 @@ async function submitInput(event) {
     event.preventDefault();
 
     // Try decrypting the token.
-    token = await decrypt(targetJson.token, input.value);
+    targetJson.auth = await decrypt(targetJson.auth, input.value);
 
     // Load the page if the token was decrypted (if the access code is correct).
     document.querySelector(".submitBtn").disabled = true;
-    if (token == null) {
+    if (targetJson.auth == null) {
         document.getElementById("submitMsg").textContent =
                 "Wrong access code. Please try again.";
         document.getElementById("userInput").value = "";
@@ -64,13 +63,13 @@ async function submitInput(event) {
     submitMsg.classList.add("active");
 }
 
-async function decrypt(token, password) {
+async function decrypt(auth, pass) {
     try {
-        const salt = Uint8Array.from(atob(token.salt),
+        const salt = Uint8Array.from(atob(auth.salt),
                 c => c.charCodeAt(0));
-        const iv = Uint8Array.from(atob(token.iv),
+        const iv = Uint8Array.from(atob(auth.iv),
                 c => c.charCodeAt(0));
-        const ciphertext = Uint8Array.from(atob(token.ciphertext),
+        const ciphertext = Uint8Array.from(atob(auth.ciphertext),
                 c => c.charCodeAt(0));
 
         const encoder = new TextEncoder();
@@ -78,7 +77,7 @@ async function decrypt(token, password) {
 
         const baseKey = await crypto.subtle.importKey(
             "raw",
-            encoder.encode(password),
+            encoder.encode(pass),
             "PBKDF2",
             false,
             ["deriveKey"]
@@ -122,12 +121,8 @@ async function decrypt(token, password) {
 
 async function loadRemoteSite() {
     try {
-        const { user, repo, hash } = targetJson;
-
-        const context = { user, repo, hash, token };
-
         // Get download_url for index.html
-        const indexHtmlUrl = await fetchGitHubFileURL("index.html", context);
+        const indexHtmlUrl = await fetchGitHubFileURL("index.html");
 
         // Fetch the index.html content
         const indexHtml = await fetch(indexHtmlUrl).then(res => {
@@ -137,10 +132,10 @@ async function loadRemoteSite() {
         });
 
         // Take the favicon from remote
-        await injectRemoteFavicon(context);
+        await injectRemoteFavicon();
 
         // Patch the HTML: fix script src, images, onclicks, etc.
-        const html = await processHtml(indexHtml, context);
+        const html = await processHtml(indexHtml);
 
         // Replace the body with the patched html
         document.documentElement.innerHTML = html;
@@ -157,15 +152,19 @@ async function loadRemoteSite() {
 /**
  *  always returns download_url string for the file
  */
-async function fetchGitHubFileURL(path, { user, repo, hash,
-        token }) {
+async function fetchGitHubFileURL(path) {
+    const user = targetJson.user;
+    const repo = targetJson.repo;
+    const hash = targetJson.hash;
+    const auth = targetJson.auth;
+
     const apiUrl = `https://api.github.com/repos/${user}/${repo}/` +
             `contents/${path}?ref=${hash}`;
 
     const metadataRes = await fetch(apiUrl, {
         cache: "no-store",
         headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${auth}`,
             Accept: "application/vnd.github.v3+json"
         }
     });
@@ -184,34 +183,34 @@ async function fetchGitHubFileURL(path, { user, repo, hash,
     return metadata.download_url;
 }
 
-async function processHtml(htmlText, context) {
+async function processHtml(htmlText) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(htmlText, "text/html");
 
     // Patch 'href' attributes (e.g., link[href], a[href], etc.)
-    await patchAttributeCSS(doc, context);
+    await patchAttributeCSS(doc);
 
     // Patch 'src' attributes (e.g., script[src], img[src], iframe[src], etc.)
-    await patchAttributeLinks(doc, context);
+    await patchAttributeLinks(doc);
 
-    await patchMetaContent(doc, context); // <-- new line
+    await patchMetaContent(doc); // <-- new line
 
     // Patch inline onclick="downloadFile('filename')" to dynamic fetch + call
-    patchOnclickDownloadFile(doc, context);
+    patchOnclickDownloadFile(doc);
 
 //    console.log(doc.documentElement.outerHTML);
 
     return doc.documentElement.outerHTML;
 }
 
-async function patchAttributeCSS(doc, context) {
+async function patchAttributeCSS(doc) {
     const elements = [...doc.querySelectorAll("[href]")];
 
     for (const el of elements) {
         const hrefValue = el.getAttribute("href");
 
         try {
-            const updatedUrl = await fetchGitHubFileURL(hrefValue, context);
+            const updatedUrl = await fetchGitHubFileURL(hrefValue);
             // Fetch CSS content and replace <link> with <style>
             const cssText = await fetch(updatedUrl).then(r => r.text());
             const styleEl = doc.createElement("style");
@@ -225,14 +224,14 @@ async function patchAttributeCSS(doc, context) {
     }
 }
 
-async function patchAttributeLinks(doc, context) {
+async function patchAttributeLinks(doc) {
     const elements = [...doc.querySelectorAll("[src]")];
 
     for (const el of elements) {
         const srcValue = el.getAttribute("src");
 
         try {
-            const updatedUrl = await fetchGitHubFileURL(srcValue, context);
+            const updatedUrl = await fetchGitHubFileURL(srcValue);
             el.setAttribute("src", updatedUrl);
         } catch (err) {
             console.warn(`Failed to update ${el.tagName.toLowerCase()} src
@@ -241,7 +240,7 @@ async function patchAttributeLinks(doc, context) {
     }
 }
 
-function patchOnclickDownloadFile(doc, context) {
+function patchOnclickDownloadFile(doc) {
     const onclickElements = doc.querySelectorAll("[onclick]");
     onclickElements.forEach(el => {
         const onclick = el.getAttribute("onclick");
@@ -256,8 +255,7 @@ function patchOnclickDownloadFile(doc, context) {
             el.setAttribute("onclick", `
                 (async () => {
                     try {
-                        const url = await fetchGitHubFileURL("${filename}",
-                                ${JSON.stringify(context)});
+                        const url = await fetchGitHubFileURL("${filename}");
                         downloadFile(url);
                     } catch (err) {
                         alert("Download failed: " + err.message);
@@ -269,7 +267,7 @@ function patchOnclickDownloadFile(doc, context) {
     });
 }
 
-async function injectRemoteFavicon(htmlText, context) {
+async function injectRemoteFavicon(htmlText) {
     try {
         // Parse HTML string into a Document
         const parser = new DOMParser();
@@ -283,7 +281,7 @@ async function injectRemoteFavicon(htmlText, context) {
         if (!faviconPath) return;
 
         // Get GitHub download_url
-        const faviconUrl = await fetchGitHubFileURL(faviconPath, context);
+        const faviconUrl = await fetchGitHubFileURL(faviconPath);
 
         const newLink = document.createElement("link");
         newLink.rel = "icon";
@@ -332,7 +330,7 @@ async function injectRemoteScripts() {
     }
 }
 
-async function patchMetaContent(doc, context) {
+async function patchMetaContent(doc) {
     const metaElements = [...doc.querySelectorAll("meta[content]")];
 
     for (const el of metaElements) {
@@ -347,7 +345,7 @@ async function patchMetaContent(doc, context) {
         ) continue;
 
         try {
-            const updatedUrl = await fetchGitHubFileURL(contentValue, context);
+            const updatedUrl = await fetchGitHubFileURL(contentValue);
             el.setAttribute("content", updatedUrl);
         } catch (err) {
             console.warn(`Failed to update meta content "${contentValue}": ${err.message}`);
