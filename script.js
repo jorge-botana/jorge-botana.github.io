@@ -122,9 +122,9 @@ async function decrypt(token, password) {
 
 async function loadRemoteSite() {
     try {
-        const { username, repository, branch } = targetJson;
+        const { user, repo, hash } = targetJson;
 
-        const context = { username, repository, branch, token };
+        const context = { user, repo, hash, token };
 
         // Get download_url for index.html
         const indexHtmlUrl = await fetchGitHubFileURL("index.html", context);
@@ -157,10 +157,10 @@ async function loadRemoteSite() {
 /**
  *  always returns download_url string for the file
  */
-async function fetchGitHubFileURL(filePath, { username, repository, branch,
+async function fetchGitHubFileURL(path, { user, repo, hash,
         token }) {
-    const apiUrl = `https://api.github.com/repos/${username}/${repository}/` +
-            `contents/${filePath}?ref=${branch}`;
+    const apiUrl = `https://api.github.com/repos/${user}/${repo}/` +
+            `contents/${path}?ref=${hash}`;
 
     const metadataRes = await fetch(apiUrl, {
         cache: "no-store",
@@ -171,14 +171,14 @@ async function fetchGitHubFileURL(filePath, { username, repository, branch,
     });
 
     if (!metadataRes.ok) {
-        throw new Error(`Failed to fetch metadata for ${filePath}:
+        throw new Error(`Failed to fetch metadata for ${path}:
                 ${metadataRes.status}`);
     }
 
     const metadata = await metadataRes.json();
 
     if (!metadata.download_url) {
-        throw new Error(`No download_url found for ${filePath}`);
+        throw new Error(`No download_url found for ${path}`);
     }
 
     return metadata.download_url;
