@@ -35,7 +35,7 @@
                             document.getElementById("iv").value.trim();
                     const ciphertextBase64 =
                             document.getElementById("ciphertext").value.trim();
-                    const password =
+                    const pass =
                             document.getElementById("password").value;
 
                     const salt = Uint8Array.from(atob(saltBase64),
@@ -50,7 +50,7 @@
 
                     const baseKey = await crypto.subtle.importKey(
                         "raw",
-                        encoder.encode(password),
+                        encoder.encode(pass),
                         "PBKDF2",
                         false,
                         ["deriveKey"]

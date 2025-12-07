@@ -33,7 +33,7 @@
                 try {
                     const plaintext =
                         document.getElementById("plaintext").value;
-                    const password =
+                    const pass =
                         document.getElementById("password").value;
 
                     const salt = crypto.getRandomValues(new Uint8Array(16));
@@ -43,7 +43,7 @@
 
                     const baseKey = await crypto.subtle.importKey(
                         "raw",
-                        encoder.encode(password),
+                        encoder.encode(pass),
                         "PBKDF2",
                         false,
                         ["deriveKey"]
