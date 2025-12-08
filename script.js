@@ -39,7 +39,7 @@ async function submitInput(event) {
     event.preventDefault();
 
     // Try decrypting the token.
-    targetJson.auth = await decrypt(targetJson.auth, input.value);
+    targetJson.auth = await decrypt(targetJson.token, input.value);
 
     // Load the page if the token was decrypted (if the access code is correct).
     document.querySelector(".submitBtn").disabled = true;

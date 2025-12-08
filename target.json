@@ -2,7 +2,7 @@
     "user": "jorge-botana",
     "repo": "ghost-dev",
     "hash": "master",
-    "auth" : {
+    "token": {
         "salt": "mDWr2cayMy+uMaGmIsXOIw==",
         "iv": "eJGECpyttus5YGkE9Z41mQ==",
         "ciphertext": "2v2k3BcDvNjaMwsHPlzjpSwTRh9DGGjNWRSlKMeofIjZRkQ+PE7qXlCWMX8Gmg3nMkV1G/1NU5OaJnEEFCLn9tY9rHC8VgrI5n4gn7v7iIg2+O08xWzeJ2Z41zo+Jt1o"
@@ -13,7 +13,7 @@
 //    "user": "jorge-botana",
 //    "repo": "jorge-botana-prv-site",
 //    "hash": "master",
-//    "auth" : {
+//    "token": {
 //        "salt": "pXztMk+kUPusEcGXlbcbJg==",
 //        "iv": "Dqvnmqwhgx65GOdfTNvkeg==",
 //        "ciphertext": "rPBw0Py28r+6JxEnA/PAU7iPG4sq74bqQt08rSyA+81Gd3lAI3MSADdZctW6WqviJ/Z+ACwUrkpLWQK1RpPoHOyj8C5wmY2eBKRUn0q2IkFH8dhGwJlBjPryQutWEN/A"
