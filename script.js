@@ -122,17 +122,13 @@ async function decrypt(auth, pass) {
 async function loadRemoteSite() {
     try {
         // Get download_url for index.html
-        const indexHtmlUrl = await githubFetch("index.html");
+        const file = await githubFetch("index.html");
 
-        // Fetch the index.html content
-        const indexHtml = await fetch(indexHtmlUrl).then(res => {
-            if (!res.ok) throw new
-                    Error(`Failed to fetch index.html content: ${res.status}`);
-            return res.text();
-        });
+        // Fetch the index.html content (now taken from .content)
+        const indexHtml = atob(file.content);
 
         // Take the favicon from remote
-        await injectRemoteFavicon();
+        await injectRemoteFavicon(indexHtml);
 
         // Patch the HTML: fix script src, images, onclicks, etc.
         const html = await processHtml(indexHtml);
@@ -150,7 +146,7 @@ async function loadRemoteSite() {
 }
 
 /**
- *  always returns download_url string for the file
+ *  always returns full GitHub API data object
  */
 async function githubFetch(path) {
     const user = targetJson.user;
@@ -173,9 +169,9 @@ async function githubFetch(path) {
         headers.Authorization = `Bearer ${auth}`;
     }
     const res = await fetch(url, { cache: "no-store", headers });
-    data = await res.json();
+    const data = await res.json();
 
-    return data.download_url;
+    return data;   // <-- changed from data.download_url
 }
 
 async function processHtml(htmlText) {
@@ -188,7 +184,7 @@ async function processHtml(htmlText) {
     // Patch 'src' attributes (e.g., script[src], img[src], iframe[src], etc.)
     await patchAttributeLinks(doc);
 
-    await patchMetaContent(doc); // <-- new line
+    await patchMetaContent(doc);
 
     // Patch inline onclick="downloadFile('filename')" to dynamic fetch + call
     patchOnclickDownloadFile(doc);
@@ -205,12 +201,12 @@ async function patchAttributeCSS(doc) {
         const hrefValue = el.getAttribute("href");
 
         try {
-            const updatedUrl = await githubFetch(hrefValue);
+            const file = await githubFetch(hrefValue);
             // Fetch CSS content and replace <link> with <style>
-            const cssText = await fetch(updatedUrl).then(r => r.text());
+            const cssText = atob(file.content); // <-- replaced extra fetch
             const styleEl = doc.createElement("style");
             styleEl.textContent = cssText;
-            styleEl.setAttribute("data-href", hrefValue); // <-- add this PARA marcar lines a quitar del CSS
+            styleEl.setAttribute("data-href", hrefValue);
             el.replaceWith(styleEl);
         } catch (err) {
             console.warn(`Failed to update ${el.tagName.toLowerCase()} href
@@ -226,8 +222,8 @@ async function patchAttributeLinks(doc) {
         const srcValue = el.getAttribute("src");
 
         try {
-            const updatedUrl = await githubFetch(srcValue);
-            el.setAttribute("src", updatedUrl);
+            const file = await githubFetch(srcValue);
+            el.setAttribute("src", file.download_url); // <-- use .download_url
         } catch (err) {
             console.warn(`Failed to update ${el.tagName.toLowerCase()} src
                     "${srcValue}": ${err.message}`);
@@ -250,8 +246,8 @@ function patchOnclickDownloadFile(doc) {
             el.setAttribute("onclick", `
                 (async () => {
                     try {
-                        const url = await githubFetch("${filename}");
-                        downloadFile(url);
+                        const file = await githubFetch("${filename}");
+                        downloadFile(file.download_url); // <-- updated
                     } catch (err) {
                         alert("Download failed: " + err.message);
                     }
@@ -276,12 +272,12 @@ async function injectRemoteFavicon(htmlText) {
         if (!faviconPath) return;
 
         // Get GitHub download_url
-        const faviconUrl = await githubFetch(faviconPath);
+        const file = await githubFetch(faviconPath);
 
         const newLink = document.createElement("link");
         newLink.rel = "icon";
         newLink.type = "image/x-icon";
-        newLink.href = faviconUrl;
+        newLink.href = file.download_url;  // <-- update
 
         // Remove existing favicons
         document.querySelectorAll("link[rel~='icon']").forEach(el => el.remove());
@@ -340,8 +336,8 @@ async function patchMetaContent(doc) {
         ) continue;
 
         try {
-            const updatedUrl = await githubFetch(contentValue);
-            el.setAttribute("content", updatedUrl);
+            const file = await githubFetch(contentValue);
+            el.setAttribute("content", file.download_url); // <-- updated
         } catch (err) {
             console.warn(`Failed to update meta content "${contentValue}": ${err.message}`);
         }
