@@ -122,7 +122,7 @@ async function decrypt(auth, pass) {
 async function loadRemoteSite() {
     try {
         // Get download_url for index.html
-        const indexHtmlUrl = await fetchGitHubFileURL("index.html");
+        const indexHtmlUrl = await githubFetch("index.html");
 
         // Fetch the index.html content
         const indexHtml = await fetch(indexHtmlUrl).then(res => {
@@ -152,16 +152,19 @@ async function loadRemoteSite() {
 /**
  *  always returns download_url string for the file
  */
-async function fetchGitHubFileURL(path) {
+async function githubFetch(path) {
     const user = targetJson.user;
     const repo = targetJson.repo;
     const hash = targetJson.hash;
     const auth = targetJson.auth;
 
-    const apiUrl = `https://api.github.com/repos/${user}/${repo}/` +
-            `contents/${path}?ref=${hash}`;
+    path = "/" + path;
+    let url = `https://api.github.com/repos/${user}/${repo}/contents${path}`;
+    if (hash) {
+        url += `?ref=${hash}`;
+    }
 
-    const metadataRes = await fetch(apiUrl, {
+    const metadataRes = await fetch(url, {
         cache: "no-store",
         headers: {
             Authorization: `Bearer ${auth}`,
@@ -210,7 +213,7 @@ async function patchAttributeCSS(doc) {
         const hrefValue = el.getAttribute("href");
 
         try {
-            const updatedUrl = await fetchGitHubFileURL(hrefValue);
+            const updatedUrl = await githubFetch(hrefValue);
             // Fetch CSS content and replace <link> with <style>
             const cssText = await fetch(updatedUrl).then(r => r.text());
             const styleEl = doc.createElement("style");
@@ -231,7 +234,7 @@ async function patchAttributeLinks(doc) {
         const srcValue = el.getAttribute("src");
 
         try {
-            const updatedUrl = await fetchGitHubFileURL(srcValue);
+            const updatedUrl = await githubFetch(srcValue);
             el.setAttribute("src", updatedUrl);
         } catch (err) {
             console.warn(`Failed to update ${el.tagName.toLowerCase()} src
@@ -255,7 +258,7 @@ function patchOnclickDownloadFile(doc) {
             el.setAttribute("onclick", `
                 (async () => {
                     try {
-                        const url = await fetchGitHubFileURL("${filename}");
+                        const url = await githubFetch("${filename}");
                         downloadFile(url);
                     } catch (err) {
                         alert("Download failed: " + err.message);
@@ -281,7 +284,7 @@ async function injectRemoteFavicon(htmlText) {
         if (!faviconPath) return;
 
         // Get GitHub download_url
-        const faviconUrl = await fetchGitHubFileURL(faviconPath);
+        const faviconUrl = await githubFetch(faviconPath);
 
         const newLink = document.createElement("link");
         newLink.rel = "icon";
@@ -345,7 +348,7 @@ async function patchMetaContent(doc) {
         ) continue;
 
         try {
-            const updatedUrl = await fetchGitHubFileURL(contentValue);
+            const updatedUrl = await githubFetch(contentValue);
             el.setAttribute("content", updatedUrl);
         } catch (err) {
             console.warn(`Failed to update meta content "${contentValue}": ${err.message}`);
