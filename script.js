@@ -159,31 +159,23 @@ async function githubFetch(path) {
     const auth = targetJson.auth;
 
     path = "/" + path;
+
+    // Encode the path and create the URL (spaces are encoded to %20).
+    path = encodeURI(path);
     let url = `https://api.github.com/repos/${user}/${repo}/contents${path}`;
     if (hash) {
         url += `?ref=${hash}`;
     }
-
-    const metadataRes = await fetch(url, {
-        cache: "no-store",
-        headers: {
-            Authorization: `Bearer ${auth}`,
-            Accept: "application/vnd.github.v3+json"
-        }
-    });
-
-    if (!metadataRes.ok) {
-        throw new Error(`Failed to fetch metadata for ${path}:
-                ${metadataRes.status}`);
+    const headers = {
+        Accept: "application/vnd.github.v3+json"
+    };
+    if (auth) {
+        headers.Authorization = `Bearer ${auth}`;
     }
+    const res = await fetch(url, { cache: "no-store", headers });
+    data = await res.json();
 
-    const metadata = await metadataRes.json();
-
-    if (!metadata.download_url) {
-        throw new Error(`No download_url found for ${path}`);
-    }
-
-    return metadata.download_url;
+    return data.download_url;
 }
 
 async function processHtml(htmlText) {
